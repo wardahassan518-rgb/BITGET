@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy"
+  content="default-src 'self';
+           script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com;
+           style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com;
+           font-src https://fonts.gstatic.com;
+           connect-src 'self' https://worldtimeapi.org;
+           img-src 'self' data: blob:;
+           object-src 'none';
+           base-uri 'self';">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blockchain Compliance Verification — DEMS</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<style>
+/* ── BASE CONTAINER ─────────────────────────────────────── */
+body {
+  background: var(--navy);
+  font-family: var(--font-sans);
+  color: var(--white);
+  padding: 24px 16px;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.verify-box {
+  width: 100%;
+  max-width: 650px;
+  background: var(--navy-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding: 40px;
+  box-shadow: var(--shadow-lg);
+  position: relative;
+  overflow: hidden;
+}
+.verify-box::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; height: 4px;
+  background: linear-gradient(90deg, var(--blue), var(--green));
+}
+
+.title-section { text-align: center; margin-bottom: 28px; }
+.v-logo { font-size: 36px; color: var(--blue); margin-bottom: 8px; }
+.v-title { font-family: var(--font-display); font-size: 18px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+.v-subtitle { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+/* ── STATUS PLATES ──────────────────────────────────────── */
+.status-plate {
+  display: none; align-items: center; gap: 14px;
+  padding: 16px 20px; border-radius: var(--radius-lg);
+  margin-bottom: 24px; animation: scale-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.status-plate.original {
+  display: flex; background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.3); color: var(--green);
+}
+.status-plate.tampered {
+  display: flex; background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.3); color: var(--red);
+}
+.status-plate.notfound {
+  display: flex; background: rgba(107,128,153,0.08); border: 1px solid rgba(107,128,153,0.3); color: var(--muted);
+}
+
+.plate-icon { font-size: 32px; line-height: 1; }
+.plate-title { font-family: var(--font-display); font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+.plate-desc { font-size: 11.5px; opacity: 0.85; margin-top: 2px; }
+
+/* ── DETAILS TABLE ──────────────────────────────────────── */
+.v-table { width: 100%; border-collapse: collapse; margin-top: 14px; font-size: 13px; }
+.v-table td { padding: 12px 0; border-bottom: 1px dashed var(--border-soft); color: var(--white); }
+.v-table tr:last-child td { border-bottom: none; }
+.v-table td.lbl { color: var(--muted); font-weight: 500; width: 140px; }
+.v-table td.val { font-weight: 600; text-align: right; }
+.v-table td.val.mono { font-family: var(--font-mono); font-size: 11px; color: var(--blue); word-break: break-all; }
+
+/* loading spinner */
+.spinner-container { text-align: center; padding: 40px 0; }
+.spinner {
+  width: 32px; height: 32px; border: 3px solid var(--border-soft); border-top-color: var(--blue);
+  border-radius: 50%; display: inline-block; animation: spin 0.8s linear infinite; margin-bottom: 12px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* helper back to app link */
+.back-btn-box { text-align: center; margin-top: 32px; padding-top: 20px; border-top: 1px solid var(--border-soft); }
+
+.scope-note {
+  margin-top: 24px;
+  padding: 14px 16px;
+  background: rgba(107,128,153,0.06);
+  border: 1px solid rgba(107,128,153,0.18);
+  border-radius: var(--radius-lg);
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+</style>
+</head>
+<body>
+
+<!-- toast -->
+<div id="toastContainer" aria-live="polite" aria-atomic="true" style="position: fixed; top: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 8px;"></div>
+
+<div class="verify-box">
+
+  <div class="title-section">
+    <div class="v-logo">⬡</div>
+    <div class="v-title">Compliance Verification</div>
+    <div class="v-subtitle">Audit gateway for digital financial exchange records</div>
+  </div>
+
+  <!-- Loading section -->
+  <div class="spinner-container" id="loadingArea">
+    <div class="spinner"></div>
+    <div style="font-size:12px; color:var(--muted);">Performing real-time cryptographic audit scan…</div>
+  </div>
+
+  <!-- Status templates -->
+  <div class="status-plate original" id="statusOriginal">
+    <div class="plate-icon">✅</div>
+    <div>
+      <div class="plate-title">Original Certified Block</div>
+      <div class="plate-desc">Real-time SHA-256 signature hashes align with the immutable block sequence. No alterations detected.</div>
+    </div>
+  </div>
+
+  <div class="status-plate tampered" id="statusTampered">
+    <div class="plate-icon">🚨</div>
+    <div>
+      <div class="plate-title">BLOCK ALTERED / TAMPERED</div>
+      <div class="plate-desc">CRITICAL COMPLIANCE WARNING: Cryptographic signature mismatch. Ledger block has been modified or corrupted!</div>
+    </div>
+  </div>
+
+  <div class="status-plate notfound" id="statusNotFound">
+    <div class="plate-icon">❓</div>
+    <div>
+      <div class="plate-title">Transaction Block Not Found</div>
+      <div class="plate-desc">The lookup parameter does not correspond to any chained records in this system's active datastore.</div>
+    </div>
+  </div>
+
+  <!-- Table details results -->
+  <div id="resultsArea" style="display:none; margin-top:10px;">
+    <table class="v-table">
+      <tbody>
+        <tr>
+          <td class="lbl">Block Position</td>
+          <td class="val" id="vBlockIdx">#0</td>
+        </tr>
+        <tr>
+          <td class="lbl">Receipt Number</td>
+          <td class="val mono" id="vReceipt">EXC-YYYY-NNNNN</td>
+        </tr>
+        <tr>
+          <td class="lbl">Transaction Date (UTC)</td>
+          <td class="val" id="vTime">—</td>
+        </tr>
+        <tr>
+          <td class="lbl">Transaction Type</td>
+          <td class="val" id="vType">—</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="scope-note">
+    This check confirms the record's stored signature and chain link are
+    internally consistent — it does not certify that the underlying data was
+    never altered by someone with direct access to the system that issued it.
+  </div>
+
+  <div class="back-btn-box">
+    <a href="index.html" class="btn-secondary btn-sm" style="text-decoration:none;">⬅ Return to Onboarding Portal</a>
+  </div>
+
+</div>
+
+<script src="db.js"></script>
+<script src="auth.js"></script>
+<script src="profile.js"></script>
+<script src="audit-log.js"></script>
+<script src="hash-engine.js"></script>
+<script>
+'use strict';
+
+window.addEventListener('DOMContentLoaded', async () => {
+  // Public verification page: we DO NOT require an active log in session!
+  await DB.init();
+  await runVerificationScan();
+});
+
+async function runVerificationScan() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const receiptParam = urlParams.get('receipt');
+  const hashParam = urlParams.get('hash');
+
+  const loading = document.getElementById('loadingArea');
+  const results = document.getElementById('resultsArea');
+
+  if (!receiptParam && !hashParam) {
+    loading.style.display = 'none';
+    document.getElementById('statusNotFound').style.display = 'flex';
+    return;
+  }
+
+  try {
+    let txn = null;
+    
+    // Look up transaction
+    if (receiptParam) {
+      txn = await DB.get(`SELECT * FROM transactions WHERE receipt_number = ?`, [receiptParam]);
+    } else if (hashParam) {
+      txn = await DB.get(`SELECT * FROM transactions WHERE hash = ?`, [hashParam]);
+    }
+
+    loading.style.display = 'none';
+
+    if (!txn) {
+      document.getElementById('statusNotFound').style.display = 'flex';
+      
+      // Log failed compliance checks
+      AuditLog.add(
+        'VERIFICATION_FAILED',
+        `Lookup failed: receipt=${receiptParam||'—'} | hash=${hashParam||'—'}`
+      );
+      
+      // Log verification stats for Phase 07 (Verification Log)
+      await DB.run(
+        `INSERT INTO verification_log (receipt_number, verified_at, result, user_agent)
+         VALUES (?, ?, 'NOT_FOUND', ?)`,
+        [receiptParam || 'UNKNOWN', new Date().toISOString(), navigator.userAgent]
+      );
+      return;
+    }
+
+    // Parse parameters
+    // SEC-FIX 5: this is a PUBLIC page — only non-sensitive fields are
+    // rendered (receipt number, date, type, chain index, validity status).
+    // Amounts, rates, bank/payment details, and client PII are intentionally
+    // never written to the DOM here, even though they exist on `txn`.
+    document.getElementById('vBlockIdx').textContent = `Block #${txn.chain_index}`;
+    document.getElementById('vReceipt').textContent = txn.receipt_number;
+    // Date only — no time-of-day — to avoid revealing granular activity timing.
+    document.getElementById('vTime').textContent = new Date(txn.timestamp).toISOString().split('T')[0];
+
+    const isBuy = txn.txn_type === 'buy';
+    document.getElementById('vType').innerHTML = `<span class="badge-type ${txn.txn_type}">${isBuy ? '📥 Buy (Client Sells USDT)' : '📤 Sell (Client Buys USDT)'}</span>`;
+
+    // ── CRYPTOGRAPHIC VALIDATION TRACE ──
+    // Use the authoritative HashEngine routines (these already log to
+    // verification_log + AuditLog internally, so we don't duplicate that
+    // here). They check TWO things, not just one:
+    //   1. hashValid — this record's own SHA-256 signature matches its content
+    //   2. linkValid — this record's prev_hash correctly chains to the
+    //      previous block's hash
+    // Checking hash alone (the old logic) misses an attacker who rewrites a
+    // single block and recomputes that block's own hash to match — the
+    // record looks internally consistent, but the NEXT block in the chain
+    // still points at the old hash, breaking the link. Checking both closes
+    // that gap.
+    const verification = receiptParam
+      ? await HashEngine.verifyByReceiptNumber(txn.receipt_number)
+      : await HashEngine.verifyByHash(txn.hash);
+
+    if (!verification.found) {
+      // Defensive fallback — shouldn't happen since we already loaded txn above
+      document.getElementById('statusNotFound').style.display = 'flex';
+      return;
+    }
+
+    if (verification.intact) {
+      document.getElementById('statusOriginal').style.display = 'flex';
+    } else {
+      // Build copy that explains specifically which check(s) failed
+      const reasons = [];
+      if (!verification.hashValid) {
+        reasons.push('this block\u2019s cryptographic signature no longer matches its stored data');
+      }
+      if (!verification.linkValid) {
+        reasons.push('this block is not correctly linked to the preceding block in the chain');
+      }
+      const descEl = document.querySelector('#statusTampered .plate-desc');
+      descEl.textContent = `CRITICAL COMPLIANCE WARNING: ${reasons.join(', and ')}. Ledger block has been modified or corrupted!`;
+      document.getElementById('statusTampered').style.display = 'flex';
+    }
+
+    results.style.display = 'block';
+
+  } catch(e) {
+    loading.style.display = 'none';
+    document.getElementById('statusNotFound').style.display = 'flex';
+    Toast.show('Verification scan corrupted: ' + e.message, 'error');
+  }
+}
+
+const Toast = {
+  show(msg, type='info', dur=3500) {
+    const c = document.getElementById('toastContainer');
+    const t = document.createElement('div');
+    const icons = { success:'✅', error:'❌', info:'ℹ️', warning:'⚠️' };
+    t.className = `toast ${type}`;
+    t.innerHTML = `<span>${icons[type]||'ℹ️'}</span><span>${msg}</span>`;
+    c.appendChild(t);
+    setTimeout(() => { t.style.opacity='0'; t.style.transition='opacity 0.3s'; setTimeout(()=>t.remove(),300); }, dur);
+  }
+};
+</script>
+</body>
+</html>

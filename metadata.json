@@ -1,0 +1,6 @@
+{
+  "name": "Digital Exchange Management System",
+  "description": "A secure, tamper-proof, offline-first currency exchange record-keeping system for complying with SECP and financial audit rules.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

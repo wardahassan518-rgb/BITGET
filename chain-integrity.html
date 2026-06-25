@@ -1,0 +1,1103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy"
+  content="default-src 'self';
+           script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com;
+           style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com;
+           font-src https://fonts.gstatic.com;
+           connect-src 'self' https://worldtimeapi.org;
+           img-src 'self' data: blob:;
+           object-src 'none';
+           base-uri 'self';">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chain Integrity — Exchange MS</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<style>
+  /* ── Page Layout ── */
+  .app-shell { display: flex; min-height: 100vh; }
+  
+  .sidebar {
+    width: 220px; flex-shrink: 0;
+    background: var(--navy-2);
+    border-right: 1px solid var(--border);
+    padding: 24px 12px;
+    position: fixed; top: 0; left: 0; height: 100vh;
+    overflow-y: auto; z-index: 100;
+    display: flex; flex-direction: column;
+    transition: left 0.25s;
+  }
+  .sidebar-brand {
+    display: flex; align-items: center; gap: 10px;
+    padding: 0 8px 20px; border-bottom: 1px solid var(--border); margin-bottom: 20px;
+  }
+  .sb-logo { font-size: 22px; color: var(--blue); }
+  .sb-name { font-family: var(--font-display); font-size: 15px; font-weight: 700; color: var(--white); line-height: 1.1; }
+  .sb-name small { display: block; color: var(--muted); font-size: 10px; font-weight: 400; }
+  
+  .nav-group-label {
+    font-size: 10px; font-weight: 600; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.1em;
+    padding: 0 8px; margin: 16px 0 6px;
+  }
+  
+  .nav-item {
+    display: flex; align-items: center; gap: 9px;
+    padding: 9px 10px; border-radius: var(--radius-sm);
+    font-size: 13px; font-weight: 500; color: var(--muted);
+    text-decoration: none; transition: all 0.15s; margin-bottom: 2px;
+    background: none; border: none; cursor: pointer; width: 100%; text-align: left;
+  }
+  .nav-item:hover { background: var(--blue-glow); color: var(--white); text-decoration: none; }
+  .nav-item.active { background: var(--blue-glow); color: var(--blue); border: 1px solid rgba(14,165,233,0.2); }
+  .nav-icon { font-size: 15px; width: 18px; text-align: center; flex-shrink: 0; }
+  
+  .sidebar-footer { margin-top: auto; padding-top: 16px; border-top: 1px solid var(--border); }
+  .session-pill {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 11px; color: var(--muted); padding: 6px 10px; margin-bottom: 4px;
+  }
+  .session-pill span { color: var(--gold); font-family: var(--font-mono); }
+
+  .main-area { margin-left: 220px; flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+
+  /* ── Top Bar ── */
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 32px;
+    background: var(--navy-2);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .page-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 17px;
+    font-weight: 700;
+  }
+  .page-title span { color: var(--blue); }
+  .topbar-badge {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border-radius: 100px;
+    background: rgba(245,158,11,0.12);
+    border: 1px solid rgba(245,158,11,0.25);
+    color: var(--gold);
+  }
+
+  /* ── Main Container ── */
+  .main {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 32px 24px 80px;
+    width: 100%;
+  }
+
+  /* ── STATUS CARD ── */
+  .status-card {
+    border-radius: 16px;
+    padding: 28px 32px;
+    margin-bottom: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    flex-wrap: wrap;
+    border: 2px solid;
+    transition: all 0.4s;
+  }
+  .status-card.intact {
+    background: rgba(16,185,129,0.06);
+    border-color: rgba(16,185,129,0.35);
+  }
+  .status-card.compromised {
+    background: rgba(239,68,68,0.06);
+    border-color: rgba(239,68,68,0.35);
+  }
+  .status-card.loading {
+    background: rgba(14,165,233,0.06);
+    border-color: rgba(14,165,233,0.2);
+  }
+  .status-card.empty {
+    background: rgba(107,128,153,0.06);
+    border-color: rgba(107,128,153,0.2);
+  }
+  .status-icon {
+    font-size: 40px;
+    flex-shrink: 0;
+  }
+  .status-info { flex: 1; min-width: 200px; }
+  .status-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .status-card.intact    .status-label { color: var(--green); }
+  .status-card.compromised .status-label { color: var(--red); }
+  .status-card.loading   .status-label { color: var(--blue); }
+  .status-card.empty     .status-label { color: var(--muted); }
+  .status-message {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 17px;
+    font-weight: 600;
+    line-height: 1.4;
+  }
+  .status-time {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 4px;
+    font-family: var(--font-mono);
+  }
+  .verify-act-btn {
+    background: var(--blue);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius-md);
+    padding: 10px 20px;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .verify-act-btn:hover:not(:disabled) { background: #38BDF8; transform: translateY(-1px); }
+  .verify-act-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* ── STATS ROW ── */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 14px;
+    margin-bottom: 28px;
+  }
+  .stat-card {
+    background: var(--navy-2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 20px;
+  }
+  .stat-card .s-label {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .stat-card .s-value {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 24px;
+    font-weight: 700;
+  }
+  .stat-card .s-sub {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 2px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .s-blue   { color: var(--blue); }
+  .s-green  { color: var(--green); }
+  .s-gold   { color: var(--gold); }
+  .s-red    { color: var(--red); }
+
+  /* ── PROGRESS BAR ── */
+  .progress-wrap {
+    background: var(--navy-2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 24px;
+    display: none;
+  }
+  .progress-wrap.visible { display: block; }
+  .progress-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+    margin-bottom: 10px;
+  }
+  .progress-label span { color: var(--muted); }
+  .progress-label strong { color: var(--blue); font-family: 'JetBrains Mono', monospace; }
+  .progress-bar {
+    height: 6px;
+    background: rgba(14,165,233,0.1);
+    border-radius: 100px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--blue), #38BDF8);
+    border-radius: 100px;
+    transition: width 0.3s ease;
+    width: 0%;
+  }
+
+  /* ── SECTION TITLE ── */
+  .section-eyebrow {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--blue);
+    margin-bottom: 8px;
+  }
+  .section-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 18px;
+  }
+
+  /* ── CHAIN TABLE ── */
+  .chain-table-wrap {
+    background: var(--navy-2);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+  .chain-table-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .chain-table-header h3 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .search-input {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 13px;
+    color: var(--white);
+    font-family: 'Inter', sans-serif;
+    outline: none;
+    width: 200px;
+    transition: border-color 0.2s;
+  }
+  .search-input::placeholder { color: var(--muted); }
+  .search-input:focus { border-color: var(--blue); }
+
+  table { width: 100%; border-collapse: collapse; }
+  thead { background: rgba(255,255,255,0.02); }
+  th {
+    text-align: left;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  td {
+    padding: 12px 16px;
+    font-size: 12.5px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    vertical-align: middle;
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+
+  .badge-ok {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(16,185,129,0.1);
+    border: 1px solid rgba(16,185,129,0.25);
+    color: var(--green);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 3px 9px;
+    border-radius: 100px;
+    white-space: nowrap;
+  }
+  .badge-tampered {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(239,68,68,0.1);
+    border: 1px solid rgba(239,68,68,0.25);
+    color: #F87171;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 3px 9px;
+    border-radius: 100px;
+    white-space: nowrap;
+  }
+  .hash-mono {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    color: var(--blue);
+    opacity: 0.85;
+  }
+  .receipt-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--gold);
+  }
+  .chain-idx {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .ts-mono {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    color: var(--muted);
+  }
+
+  .link-ok     { color: var(--green); font-size: 14px; }
+  .link-broken { color: var(--red);   font-size: 14px; }
+
+  .table-empty {
+    padding: 52px 24px;
+    text-align: center;
+    color: var(--muted);
+  }
+  .table-empty .empty-icon { font-size: 36px; margin-bottom: 14px; }
+  .table-empty p { font-size: 14px; }
+
+  .genesis-row td {
+    background: rgba(245,158,11,0.04);
+    border-bottom: 2px solid rgba(245,158,11,0.15) !important;
+  }
+  .genesis-badge {
+    display: inline-block;
+    background: rgba(245,158,11,0.12);
+    border: 1px solid rgba(245,158,11,0.25);
+    color: var(--gold);
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border-radius: 4px;
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+
+  .mobile-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 99; }
+  .mobile-overlay.show { display: block; }
+
+  /* ── ANCHOR SECTION ── */
+  .anchor-explainer {
+    background: rgba(245,158,11,0.05);
+    border: 1px solid rgba(245,158,11,0.18);
+    border-radius: 12px;
+    padding: 18px 22px;
+    font-size: 12.5px;
+    line-height: 1.65;
+    color: var(--muted);
+    margin-bottom: 20px;
+  }
+  .anchor-explainer strong { color: var(--white); }
+  .anchor-explainer em { color: var(--gold); font-style: normal; }
+
+  .anchor-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+  }
+  .anchor-card {
+    background: var(--navy-2);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 22px;
+  }
+  .anchor-card-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .anchor-card-desc {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.5;
+    margin-bottom: 14px;
+  }
+  .anchor-last-info {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 10px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .anchor-verify-result {
+    margin-top: 14px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+  .anchor-verify-result.match {
+    background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.25); color: var(--green);
+  }
+  .anchor-verify-result.mismatch {
+    background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.25); color: #F87171;
+  }
+  .anchor-verify-result.invalid {
+    background: rgba(107,128,153,0.08); border: 1px solid rgba(107,128,153,0.25); color: var(--muted);
+  }
+
+  @media (max-width: 768px) {
+    .sidebar { left: -220px; }
+    .sidebar.open { left: 0; }
+    .main-area { margin-left: 0; }
+    .status-card { padding: 20px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="mobile-overlay" id="mobileOverlay"></div>
+
+<div class="app-shell">
+
+  <!-- SIDEBAR -->
+  <nav role="navigation" class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <span class="sb-logo" id="sbLogo">⬡</span>
+      <div class="sb-name"><span id="sbBizName">Exchange</span><small>DEMS v1.0</small></div>
+    </div>
+
+    <span class="nav-group-label">Main</span>
+    <a href="dashboard.html" class="nav-item"><span class="nav-icon">📊</span> Dashboard</a>
+    <a href="new-transaction.html" class="nav-item"><span class="nav-icon">➕</span> New Transaction</a>
+    <a href="transactions.html" class="nav-item"><span class="nav-icon">📋</span> All Transactions</a>
+    <a href="clients.html" class="nav-item"><span class="nav-icon">👤</span> Client KYC</a>
+
+    <span class="nav-group-label">System</span>
+    <a href="chain-integrity.html" class="nav-item active" aria-current="page"><span class="nav-icon">🔗</span> Chain Integrity</a>
+    <a href="reports.html" class="nav-item"><span class="nav-icon">📑</span> Reports</a>
+    <a href="settings.html" class="nav-item"><span class="nav-icon">⚙️</span> Settings</a>
+    <a href="audit-log-view.html" class="nav-item"><span class="nav-icon">📁</span> Audit Logs</a>
+
+    <div class="sidebar-footer">
+      <div class="session-pill">Session: <span id="sessionTimer">--:--</span></div>
+      <button class="nav-item" id="logoutBtn"><span class="nav-icon">🚪</span> Logout</button>
+    </div>
+  </nav>
+
+  <!-- MAIN AREA -->
+  <div class="main-area">
+
+    <!-- TOP BAR -->
+    <div class="topbar">
+      <div class="topbar-left">
+        <button class="nav-item" style="display:none;" id="mobileMenuBtn">☰</button>
+        <div class="page-title">Chain <span>Integrity</span></div>
+      </div>
+      <div class="topbar-badge">Phase 02 — Hash Engine</div>
+    </div>
+
+    <!-- MAIN -->
+    <div class="main">
+
+      <!-- STATUS CARD -->
+      <div class="status-card loading" id="statusCard">
+        <div class="status-icon" id="statusIcon">⏳</div>
+        <div class="status-info">
+          <div class="status-label" id="statusLabel">Running startup check…</div>
+          <div class="status-message" id="statusMessage">Verifying chain integrity…</div>
+          <div class="status-time" id="statusTime"></div>
+        </div>
+        <button class="verify-act-btn" id="verifyBtn" onclick="runFullVerify()" disabled>
+          🔍 Full Verify
+        </button>
+        <button class="verify-act-btn" id="anchorBtn" onclick="saveAnchor()" style="background: var(--navy); border: 1px solid var(--border);" disabled>
+          🪪 Save Anchor
+        </button>
+      </div>
+
+      <!-- PROGRESS BAR -->
+      <div class="progress-wrap" id="progressWrap">
+        <div class="progress-label">
+          <span id="progressLabel">Verifying records…</span>
+          <strong id="progressPct">0%</strong>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+      </div>
+
+      <!-- STATS ROW -->
+      <div class="stats-row" id="statsRow">
+        <div class="stat-card">
+          <div class="s-label">Total Records</div>
+          <div class="s-value s-blue" id="statTotal">—</div>
+          <div class="s-sub">in chain</div>
+        </div>
+        <div class="stat-card">
+          <div class="s-label">Verified OK</div>
+          <div class="s-value s-green" id="statVerified">—</div>
+          <div class="s-sub">records</div>
+        </div>
+        <div class="stat-card">
+          <div class="s-label">Tampered</div>
+          <div class="s-value s-red" id="statTampered">—</div>
+          <div class="s-sub">detected</div>
+        </div>
+        <div class="stat-card">
+          <div class="s-label">Chain Tip</div>
+          <div class="s-value s-gold" id="statTip" style="font-size:14px;">—</div>
+          <div class="s-sub" id="statTipHash">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="s-label">Clock-Unverified</div>
+          <div class="s-value s-gold" id="statClockUnverified" style="color:var(--gold);">—</div>
+          <div class="s-sub">device clock unconfirmed at submit</div>
+        </div>
+      </div>
+
+      <!-- CHAIN RECORD TABLE -->
+      <div class="section-eyebrow">Hash Chain</div>
+      <div class="section-title">Verified Transaction Ledger</div>
+
+      <div class="chain-table-wrap">
+        <div class="chain-table-header">
+          <h3>Immutable Chain Ledger</h3>
+          <input class="search-input" id="searchInput" type="text"
+                 placeholder="Search receipt…" oninput="filterTable()">
+        </div>
+        <div id="tableContainer">
+          <div class="table-empty">
+            <div class="empty-icon">🔗</div>
+            <p>Loading chain data…</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ════════════════════════════════════════════════════
+           TAMPER-EVIDENCE ANCHORING
+           This section is additive and does not change the hash
+           chain logic above. See the explainer copy below for why
+           it exists.
+      ════════════════════════════════════════════════════════ -->
+      <div class="section-eyebrow" style="margin-top:36px;">Off-Device Tamper Evidence</div>
+      <div class="section-title">Chain Anchors</div>
+
+      <div class="anchor-explainer">
+        <strong>What hash-chain verification proves — and what it doesn't:</strong>
+        The checks above (Full Verify, Chain Intact) confirm that every record's
+        signature matches its own data and that each record correctly links to
+        the one before it. That proves <em>internal consistency</em> of the data
+        currently stored on this device. It does <em>not</em> prove the data was
+        never altered by someone with access to this device — a rewrite that
+        edits a record and recomputes every hash and link after it will still
+        look perfectly "intact" by those checks alone. An <strong>anchor</strong>
+        is a small signed snapshot of the chain tip that you save outside this
+        device (download it, email it to yourself, upload it somewhere else).
+        Comparing the chain later against an old anchor can catch a rewrite that
+        the checks above cannot, because the anchor copy isn't somewhere the
+        rewrite can reach.
+      </div>
+
+      <div class="anchor-grid">
+        <div class="anchor-card">
+          <div class="anchor-card-title">📤 Save a New Anchor</div>
+          <p class="anchor-card-desc">
+            Captures the current chain tip (index, hash, record count) and
+            signs it. Save the downloaded file somewhere off this device.
+          </p>
+          <button class="verify-act-btn" id="anchorBtn2" onclick="saveAnchor()" disabled>
+            🪪 Generate &amp; Download Anchor
+          </button>
+          <div id="anchorLastInfo" class="anchor-last-info">—</div>
+        </div>
+
+        <div class="anchor-card">
+          <div class="anchor-card-title">📥 Verify Against a Saved Anchor</div>
+          <p class="anchor-card-desc">
+            Upload a previously saved anchor file. We'll check whether the
+            current chain still matches what it recorded.
+          </p>
+          <input type="file" id="anchorFileInput" accept=".json" style="display:none;" onchange="handleAnchorUpload(event)">
+          <button class="verify-act-btn" style="background: var(--navy); border: 1px solid var(--border);" onclick="document.getElementById('anchorFileInput').click()">
+            📁 Choose Anchor File…
+          </button>
+          <div id="anchorVerifyResult" class="anchor-verify-result" style="display:none;"></div>
+        </div>
+      </div>
+
+    </div><!-- /main -->
+  </div><!-- /main-area -->
+</div><!-- /app-shell -->
+
+<!-- SCRIPTS: load DB + engine first, then page logic -->
+<!-- sql.js loaded locally via db.js (SEC-FIX 4) -->
+<script src="db.js"></script>
+<script src="audit-log.js"></script>
+<script src="profile.js"></script>
+<script src="auth.js"></script>
+<script src="hash-engine.js"></script>
+
+<script>
+// ══════════════════════════════════════════════════════════
+//  chain-integrity.html — Page Logic
+// ══════════════════════════════════════════════════════════
+
+let _allRows  = [];
+let _lastReport = null;
+
+// ── BOOT ───────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', async () => {
+  // CRITICAL Security Requirement: Auth requirement must be evaluated immediately at boot
+  if (!Auth.requireAuth()) return;
+
+  await DB.init();
+
+  // Load business info in sidebar from camelCase keys
+  try {
+    const p = await Profile.get();
+    if (p) {
+      document.getElementById('sbLogo').textContent = p.logoEmoji || '⬡';
+      document.getElementById('sbBizName').textContent = p.businessName || 'Exchange';
+    }
+  } catch(e) {}
+
+  setupSessionTimer();
+
+  // Run startup check first
+  const check = await HashEngine.startupCheck();
+  setStatusCard(check.ok, check.status, check.message, 0);
+
+  // Load chain summary into stats
+  await refreshStats();
+
+  // Load chain table
+  await refreshTable();
+
+  // Enable verify button
+  document.getElementById('verifyBtn').disabled = false;
+  document.getElementById('anchorBtn').disabled = false;
+  document.getElementById('anchorBtn2').disabled = false;
+  refreshAnchorInfo();
+});
+
+// ── STATUS CARD ────────────────────────────────────────────
+function setStatusCard(ok, status, message, ms) {
+  const card    = document.getElementById('statusCard');
+  const icon    = document.getElementById('statusIcon');
+  const label   = document.getElementById('statusLabel');
+  const msg     = document.getElementById('statusMessage');
+  const timeEl  = document.getElementById('statusTime');
+
+  card.className = 'status-card';
+
+  if (status === 'EMPTY') {
+    card.classList.add('empty');
+    icon.textContent  = '🔗';
+    label.textContent = 'No Transactions';
+    msg.textContent   = 'Chain is empty. Register transactions to start the security chain.';
+    timeEl.textContent = '';
+  } else if (ok) {
+    card.classList.add('intact');
+    icon.textContent  = '✅';
+    label.textContent = 'Chain Intact';
+    msg.textContent   = message;
+    timeEl.textContent = ms ? `Verified in ${ms}ms` : '';
+  } else if (status === 'ERROR') {
+    card.classList.add('loading');
+    icon.textContent  = '⚠️';
+    label.textContent = 'Error';
+    msg.textContent   = message;
+    timeEl.textContent = '';
+  } else {
+    card.classList.add('compromised');
+    icon.textContent  = '🚨';
+    label.textContent = 'Chain Compromised';
+    msg.textContent   = message;
+    timeEl.textContent = ms ? `Verified in ${ms}ms` : '';
+  }
+}
+
+// ── STATS ROW ──────────────────────────────────────────────
+async function refreshStats() {
+  const summary = await HashEngine.getChainSummary();
+
+  document.getElementById('statTotal').textContent    = summary.total;
+  document.getElementById('statVerified').textContent = _lastReport ? _lastReport.verified  : (summary.total > 0 ? '—' : '0');
+  document.getElementById('statTampered').textContent = _lastReport ? _lastReport.tampered  : '0';
+  document.getElementById('statTip').textContent      = summary.tipReceipt || 'Genesis';
+  document.getElementById('statTipHash').textContent  = HashEngine.formatHashShort(summary.tipHash);
+  document.getElementById('statClockUnverified').textContent = summary.clockUnverifiedCount || 0;
+}
+
+// ── TABLE ──────────────────────────────────────────────────
+async function refreshTable() {
+  const txns = await DB.all(
+    `SELECT * FROM transactions ORDER BY chain_index DESC`
+  );
+  _allRows = txns;
+  renderTable(txns);
+}
+
+function renderTable(txns) {
+  const container = document.getElementById('tableContainer');
+
+  if (!txns || txns.length === 0) {
+    container.innerHTML = `
+      <div class="table-empty">
+        <div class="empty-icon">🔗</div>
+        <p>No transactions registered in the chain yet.</p>
+      </div>`;
+    return;
+  }
+
+  const reportMap = {};
+  if (_lastReport && _lastReport.results) {
+    _lastReport.results.forEach(r => {
+      reportMap[r.chainIndex] = r;
+    });
+  }
+
+  const rows = txns.map(t => {
+    const rpt        = reportMap[t.chain_index];
+    const isGenesis  = t.chain_index === 0;
+
+    const statusBadge = rpt
+      ? (rpt.intact
+          ? `<span class="badge-ok">✓ Intact</span>`
+          : `<span class="badge-tampered">✗ Tampered</span>`)
+      : `<span style="color:var(--muted);font-size:11px;">—</span>`;
+
+    const linkIcon = rpt
+      ? (rpt.linkValid
+          ? `<span class="link-ok" title="Chain link valid">✓</span>`
+          : `<span class="link-broken" title="Chain link broken — possible deletion or modification">✗</span>`)
+      : `<span style="color:var(--muted);font-size:12px;">?</span>`;
+
+    const rowClass = isGenesis ? 'genesis-row' : '';
+    const genesisBadge = isGenesis ? `<span class="genesis-badge">Genesis</span>` : '';
+
+    const tsShort = t.timestamp
+      ? t.timestamp.replace('T', ' ').substring(0, 19) + ' UTC'
+      : '—';
+
+    return `
+      <tr class="${rowClass}">
+        <td>
+          <span class="chain-idx">#${t.chain_index}</span>
+          ${genesisBadge}
+        </td>
+        <td><span class="receipt-num">${t.receipt_number}</span></td>
+        <td><span style="color:${t.txn_type === 'buy' ? 'var(--green)' : 'var(--gold)'}; font-size:11px; font-weight:600; text-transform:uppercase;">${t.txn_type}</span></td>
+        <td style="font-weight:600;">PKR ${Number(t.amount_pkr).toLocaleString()}</td>
+        <td><span class="hash-mono">${HashEngine.formatHashShort(t.hash)}</span></td>
+        <td>${linkIcon}</td>
+        <td>${statusBadge}</td>
+        <td><span class="ts-mono">${tsShort}</span></td>
+      </tr>`;
+  }).join('');
+
+  container.innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>#Index</th>
+          <th>Receipt</th>
+          <th>Type</th>
+          <th>Amount</th>
+          <th>Hash (SHA-256)</th>
+          <th>Link</th>
+          <th>Status</th>
+          <th>Timestamp</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+function filterTable() {
+  const q = document.getElementById('searchInput').value.toLowerCase().trim();
+  if (!q) { renderTable(_allRows); return; }
+  const filtered = _allRows.filter(t =>
+    (t.receipt_number || '').toLowerCase().includes(q) ||
+    (t.client_name    || '').toLowerCase().includes(q) ||
+    (t.txn_type       || '').toLowerCase().includes(q) ||
+    String(t.chain_index).includes(q)
+  );
+  renderTable(filtered);
+}
+
+// ── FULL CHAIN VERIFY (SCALE-FIX 3: Web Worker) ───────────
+//
+// Verification is now performed entirely off the main thread
+// via chain-verify-worker.js.  The UI stays responsive at any
+// chain length — progress bar updates arrive as postMessage
+// events rather than blocking the event loop.
+//
+// Flow:
+//   1. Load all transactions on the main thread (DB is not
+//      accessible inside a Worker context).
+//   2. Read the per-install chain salt via HashEngine.getChainSalt().
+//   3. Spawn chain-verify-worker.js and post { transactions, salt }.
+//   4. Handle progress / complete / error messages from the worker.
+//   5. On complete, write the AuditLog entry (worker has no DB
+//      access), refresh stats, and re-render the chain table.
+async function runFullVerify() {
+  const btn       = document.getElementById('verifyBtn');
+  const progWrap  = document.getElementById('progressWrap');
+  const progLabel = document.getElementById('progressLabel');
+  const progPct   = document.getElementById('progressPct');
+  const progFill  = document.getElementById('progressFill');
+
+  btn.disabled  = true;
+  btn.innerHTML = '⏳ Verifying…';
+  progWrap.classList.add('visible');
+  progLabel.textContent = 'Loading transactions…';
+  progPct.textContent   = '0%';
+  progFill.style.width  = '0%';
+
+  // ── 1. Load data on the main thread ────────────────────
+  // Workers have no access to IndexedDB via the DB module, so
+  // we fetch the full chain here and pass it over postMessage.
+  // The array is transferred by structured clone; no shared memory
+  // is required and the main thread remains unblocked afterwards.
+  let transactions;
+  let salt;
+  try {
+    transactions = await DB.all(`SELECT * FROM transactions ORDER BY chain_index ASC`);
+    salt = await HashEngine.getChainSalt();
+  } catch (loadErr) {
+    progWrap.classList.remove('visible');
+    setStatusCard(false, 'ERROR', 'Failed to load transactions: ' + loadErr.message, 0);
+    btn.disabled  = false;
+    btn.innerHTML = '🔍 Full Verify';
+    return;
+  }
+
+  // ── 2. Helpers for tearing down the worker ─────────────
+  let _worker = null;
+
+  function _terminateWorker() {
+    if (_worker) { _worker.terminate(); _worker = null; }
+  }
+
+  function _resetUI() {
+    progWrap.classList.remove('visible');
+    progFill.style.width = '0%';
+    btn.disabled  = false;
+    btn.innerHTML = '🔍 Full Verify';
+  }
+
+  // ── 3. Spawn the worker ─────────────────────────────────
+  try {
+    _worker = new Worker('chain-verify-worker.js');
+  } catch (workerErr) {
+    // Workers may be unavailable in file:// origins on some browsers.
+    // Fall back to the main-thread path so the page never breaks.
+    console.warn('[Verify] Worker spawn failed, falling back to main thread:', workerErr);
+    _resetUI();
+    const onProgress = (current, total, pct) => {
+      progLabel.textContent = `Verifying record ${current} of ${total}…`;
+      progPct.textContent   = pct + '%';
+      progFill.style.width  = pct + '%';
+    };
+    progWrap.classList.add('visible');
+    const report = await HashEngine.verifyChain(onProgress);
+    _lastReport  = report;
+    _resetUI();
+    setStatusCard(report.chainIntact, report.status, report.message, report.verificationTime);
+    document.getElementById('statVerified').textContent = report.verified;
+    document.getElementById('statTampered').textContent = report.tampered;
+    await refreshStats();
+    renderTable(_allRows);
+    return;
+  }
+
+  // ── 4. Handle worker messages ───────────────────────────
+  _worker.onmessage = async (event) => {
+    const msg = event.data;
+
+    // ── Progress tick ──────────────────────────────────
+    if (msg.type === 'progress') {
+      progLabel.textContent = `Verifying record ${msg.current} of ${msg.total}…`;
+      progPct.textContent   = msg.pct + '%';
+      progFill.style.width  = msg.pct + '%';
+      return;
+    }
+
+    // ── Worker-side error ──────────────────────────────
+    if (msg.type === 'error') {
+      _terminateWorker();
+      _resetUI();
+      setStatusCard(false, 'ERROR', 'Verification error: ' + msg.message, 0);
+      AuditLog.add('CHAIN_VERIFY_ERROR', msg.message);
+      return;
+    }
+
+    // ── Verification complete ──────────────────────────
+    if (msg.type === 'complete') {
+      _terminateWorker();
+      const report = msg.result;
+      _lastReport  = report;
+
+      _resetUI();
+      setStatusCard(report.chainIntact, report.status, report.message, report.verificationTime);
+
+      document.getElementById('statVerified').textContent = report.verified;
+      document.getElementById('statTampered').textContent = report.tampered;
+
+      // AuditLog.add() must run on the main thread — the worker
+      // has no access to IndexedDB or the AuditLog module.
+      AuditLog.add(
+        'CHAIN_VERIFIED',
+        `Status: ${report.status} | Total: ${report.total} | Tampered: ${report.tampered} | Time: ${report.verificationTime}ms`
+      );
+
+      await refreshStats();
+      renderTable(_allRows);
+    }
+  };
+
+  // ── 5. Worker runtime error (syntax / load failure) ────
+  _worker.onerror = (err) => {
+    _terminateWorker();
+    _resetUI();
+    const detail = err.message || 'Unknown worker error';
+    console.error('[Verify] Worker onerror:', err);
+    setStatusCard(false, 'ERROR', 'Worker error: ' + detail, 0);
+    AuditLog.add('CHAIN_VERIFY_ERROR', detail);
+  };
+
+  // ── 6. Kick off the worker ──────────────────────────────
+  _worker.postMessage({ transactions, salt });
+}
+
+function setupSessionTimer() {
+  function tick() {
+    try {
+      const raw = localStorage.getItem('dems_session');
+      if (!raw) return;
+      const s = JSON.parse(raw);
+      const left = Math.max(0, Math.floor((s.expiresAt - Date.now()) / 1000));
+      const m = Math.floor(left/60), sec = left%60;
+      document.getElementById('sessionTimer').textContent = m + ':' + String(sec).padStart(2,'0');
+    } catch(e) {}
+  }
+  tick(); setInterval(tick, 1000);
+}
+
+// ── ANCHOR: SAVE ───────────────────────────────────────────
+function refreshAnchorInfo() {
+  const el = document.getElementById('anchorLastInfo');
+  if (!el) return;
+  const meta = HashEngine.getLastAnchorMeta();
+  if (!meta.hasAnchor) {
+    el.textContent = 'No anchor saved yet on this device.';
+    return;
+  }
+  const when = new Date(meta.takenAt).toUTCString();
+  el.textContent = `Last saved: ${when} (tip #${meta.tipIndex})${meta.overdue ? ' — overdue, save a fresh one' : ''}`;
+  el.style.color = meta.overdue ? 'var(--gold)' : 'var(--muted)';
+}
+
+async function saveAnchor() {
+  const btns = [document.getElementById('anchorBtn'), document.getElementById('anchorBtn2')];
+  btns.forEach(b => { if (b) { b.disabled = true; b.innerHTML = '⏳ Generating…'; } });
+
+  try {
+    const result = await HashEngine.exportChainAnchor();
+
+    if (!result.success) {
+      Toast.show(result.error || 'Could not generate anchor.', 'error');
+      return;
+    }
+
+    const anchor = result.anchor;
+    const blob = new Blob([JSON.stringify(anchor, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const stamp = anchor.created_at.replace(/[:.]/g, '-');
+    a.href = url;
+    a.download = `dems-chain-anchor-${stamp}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+
+    Toast.show(`Anchor saved for tip #${anchor.tip_index}. Move this file off this device to make it useful.`, 'success');
+    refreshAnchorInfo();
+
+  } catch (e) {
+    Toast.show('Anchor generation failed: ' + e.message, 'error');
+  } finally {
+    btns.forEach(b => { if (b) { b.disabled = false; b.innerHTML = '🪪 Save Anchor'; } });
+    document.getElementById('anchorBtn2').innerHTML = '🪪 Generate & Download Anchor';
+  }
+}
+
+// ── ANCHOR: VERIFY UPLOAD ──────────────────────────────────
+function handleAnchorUpload(event) {
+  const file = event.target.files && event.target.files[0];
+  const resultEl = document.getElementById('anchorVerifyResult');
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    let anchor;
+    try {
+      anchor = JSON.parse(e.target.result);
+    } catch (parseErr) {
+      resultEl.style.display = 'block';
+      resultEl.className = 'anchor-verify-result invalid';
+      resultEl.textContent = 'Could not read this file as a valid anchor (not valid JSON).';
+      return;
+    }
+
+    const verdict = await HashEngine.verifyAgainstAnchor(anchor);
+
+    resultEl.style.display = 'block';
+    if (verdict.status === 'MATCH') {
+      resultEl.className = 'anchor-verify-result match';
+      resultEl.textContent = '✅ ' + verdict.message;
+    } else if (verdict.status === 'MISMATCH') {
+      resultEl.className = 'anchor-verify-result mismatch';
+      resultEl.textContent = '🚨 ' + verdict.message;
+    } else {
+      resultEl.className = 'anchor-verify-result invalid';
+      resultEl.textContent = '⚠️ ' + verdict.message;
+    }
+  };
+  reader.onerror = () => {
+    resultEl.style.display = 'block';
+    resultEl.className = 'anchor-verify-result invalid';
+    resultEl.textContent = 'Could not read the selected file.';
+  };
+  reader.readAsText(file);
+
+  // Allow re-selecting the same file later
+  event.target.value = '';
+}
+
+document.getElementById('logoutBtn').addEventListener('click', () => {
+  Auth.logout();
+});
+</script>
+</body>
+</html>

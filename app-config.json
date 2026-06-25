@@ -1,0 +1,257 @@
+{
+  "_comment": "Digital Exchange Management System — App Configuration",
+  "_version": "1.2.0",
+  "_phase": "Phase 03 — Transaction Entry System",
+  "_lastUpdated": "2026-06-17",
+  "app": {
+    "name": "Digital Exchange Management System",
+    "shortName": "Exchange MS",
+    "version": "1.2.0",
+    "buildPhase": "Phase 03",
+    "description": "Tamper-proof currency exchange management system with SHA-256 hash chain",
+    "author": "Custom Build",
+    "supportEmail": ""
+  },
+  "security": {
+    "maxLoginAttempts": 5,
+    "lockoutDurationMinutes": 5,
+    "defaultSessionTimeoutMinutes": 30,
+    "pinLength": 4,
+    "hashAlgorithm": "SHA-256",
+    "hashVersion": "DEMS-v2",
+    "saltPrefix": "DEMS_SALT_2024",
+    "chainSalt": "DEMS_CHAIN_SALT_2024",
+    "genesisHash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "autoLockOnInactivity": true,
+    "requireAuthOnStartup": true,
+    "startupChainCheck": true,
+    "noEditAfterInsert": true,
+    "noDeleteAllowed": true
+  },
+  "database": {
+    "engine": "sql.js (SQLite WASM)",
+    "persistenceMethod": "localStorage",
+    "autoSaveIntervalSeconds": 30,
+    "backupOnExit": true,
+    "version": 2,
+    "maxTransactions": 999999
+  },
+  "receipt": {
+    "numberPrefix": "EXC",
+    "numberPadding": 5,
+    "format": "EXC-YYYY-NNNNN",
+    "example": "EXC-2024-00001",
+    "hashInReceipt": true,
+    "qrCodeEnabled": true,
+    "defaultCurrency": "PKR",
+    "pdfEnabled": true
+  },
+  "hashChain": {
+    "algorithm": "SHA-256",
+    "version": "DEMS-v2",
+    "legacyVersion": "DEMS-v1",
+    "fieldOrder": [
+      "HASH_VERSION",
+      "receipt_number",
+      "txn_type",
+      "amount_pkr",
+      "exchange_rate",
+      "amount_usdt",
+      "cost_rate",
+      "profit_pkr",
+      "client_name",
+      "client_cnic",
+      "bank_name",
+      "bank_last4",
+      "order_id",
+      "payment_ref",
+      "timestamp",
+      "chain_index",
+      "prev_hash",
+      "SALT"
+    ],
+    "legacyFieldOrder_v1": [
+      "HASH_VERSION",
+      "receipt_number",
+      "txn_type",
+      "amount_pkr",
+      "exchange_rate",
+      "amount_usdt",
+      "client_name",
+      "client_cnic",
+      "bank_name",
+      "bank_last4",
+      "order_id",
+      "payment_ref",
+      "timestamp",
+      "chain_index",
+      "prev_hash",
+      "SALT"
+    ],
+    "separator": "|",
+    "startupCheckEnabled": true,
+    "fullVerifyOnDemand": true
+  },
+  "ui": {
+    "theme": "dark-navy",
+    "primaryColor": "#0EA5E9",
+    "accentColor": "#F59E0B",
+    "successColor": "#10B981",
+    "dangerColor": "#EF4444",
+    "fontDisplay": "Space Grotesk",
+    "fontBody": "Inter",
+    "fontMono": "JetBrains Mono",
+    "animationsEnabled": true,
+    "sidebarCollapsible": true
+  },
+  "features": {
+    "phase01_auth": true,
+    "phase02_hashEngine": true,
+    "phase03_transactions": true,
+    "phase04_receipts": true,
+    "phase05_kyc": true,
+    "phase06_dashboard": true,
+    "phase07_verifier": true,
+    "phase08_backup": false
+  },
+  "compliance": {
+    "jurisdiction": "Pakistan",
+    "regulator": "SECP",
+    "taxAuthority": "FBR",
+    "amlRequired": true,
+    "kycRequired": true,
+    "transactionImmutable": true
+  },
+  "techStack": {
+    "frontend": "HTML5 + Vanilla JS",
+    "database": "SQLite (sql.js WASM)",
+    "hashing": "Web Crypto API (SHA-256)",
+    "pdfGeneration": "jsPDF (Phase 04)",
+    "qrCode": "qrcode.js (Phase 04)",
+    "encryption": "AES-256 (Phase 08)",
+    "cloudBackup": "Firebase (Phase 08)",
+    "charts": "Chart.js / Recharts (Phase 06)"
+  },
+  "auditLog": {
+    "enabled": true,
+    "maxEntries": 500,
+    "retentionDays": 365,
+    "actions": [
+      "LOGIN_SUCCESS",
+      "LOGIN_FAILED",
+      "LOGOUT",
+      "SESSION_EXPIRED",
+      "LOCKOUT",
+      "PROFILE_SETUP",
+      "PROFILE_UPDATED",
+      "PROFILE_CLEARED",
+      "PIN_CHANGED",
+      "TRANSACTION_ADDED",
+      "TRANSACTION_ERROR",
+      "TRANSACTION_VIEWED",
+      "CLIENT_VIEWED",
+      "CLIENT_VERIFIED",
+      "CLIENT_UNVERIFIED",
+      "CLIENT_FLAGGED",
+      "CLIENT_FLAG_REMOVED",
+      "CLIENT_ADDED_MANUAL",
+      "CLIENTS_EXPORTED_CSV",
+      "DASHBOARD_PERIOD_CHANGED",
+      "DASHBOARD_EXPORT_CSV",
+      "DASHBOARD_EXPORT_SUMMARY",
+      "RECEIPT_GENERATED",
+      "RECEIPT_PRINTED",
+      "RECEIPT_VERIFIED",
+      "CLIENT_ADDED",
+      "BACKUP_CREATED",
+      "BACKUP_RESTORED",
+      "AUDIT_LOG_CLEARED"
+    ]
+  },
+  "pages": {
+    "index": {
+      "file": "index.html",
+      "desc": "App shell — boot router",
+      "auth": false,
+      "phase": 1
+    },
+    "login": {
+      "file": "login.html",
+      "desc": "PIN & password login",
+      "auth": false,
+      "phase": 1
+    },
+    "setupProfile": {
+      "file": "setup-profile.html",
+      "desc": "First-time business profile wizard",
+      "auth": false,
+      "phase": 1
+    },
+    "chainIntegrity": {
+      "file": "chain-integrity.html",
+      "desc": "Hash chain viewer & integrity check",
+      "auth": true,
+      "phase": 2
+    },
+    "dashboard": {
+      "file": "dashboard.html",
+      "desc": "Main dashboard & stats",
+      "auth": true,
+      "phase": 6
+    },
+    "newTxn": {
+      "file": "new-transaction.html",
+      "desc": "Add new transaction",
+      "auth": true,
+      "phase": 3
+    },
+    "transactions": {
+      "file": "transactions.html",
+      "desc": "Transaction history & search",
+      "auth": true,
+      "phase": 3
+    },
+    "receipt": {
+      "file": "receipt.html",
+      "desc": "Receipt view & download",
+      "auth": true,
+      "phase": 4
+    },
+    "clients": {
+      "file": "clients.html",
+      "desc": "Client KYC database",
+      "auth": true,
+      "phase": 5
+    },
+    "reports": {
+      "file": "reports.html",
+      "desc": "Analytics & reports",
+      "auth": true,
+      "phase": 6
+    },
+    "verify": {
+      "file": "verify.html",
+      "desc": "Public hash verifier",
+      "auth": false,
+      "phase": 7
+    },
+    "backup": {
+      "file": "backup.html",
+      "desc": "Backup & restore",
+      "auth": true,
+      "phase": 8
+    },
+    "settings": {
+      "file": "settings.html",
+      "desc": "App settings & profile edit",
+      "auth": true,
+      "phase": 1
+    },
+    "auditLog": {
+      "file": "audit-log-view.html",
+      "desc": "View full audit trail",
+      "auth": true,
+      "phase": 1
+    }
+  }
+}

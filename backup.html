@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Backup & Restore — DEMS</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<style>
+/* ── LAYOUT ─────────────────────────────────────────────── */
+.app-shell { display: flex; min-height: 100vh; }
+
+.sidebar {
+  width: 220px; flex-shrink: 0;
+  background: var(--navy-2);
+  border-right: 1px solid var(--border);
+  padding: 24px 12px;
+  position: fixed; top: 0; left: 0; height: 100vh;
+  overflow-y: auto; z-index: 100;
+  display: flex; flex-direction: column;
+  transition: left 0.25s;
+}
+.sidebar-brand {
+  display: flex; align-items: center; gap: 10px;
+  padding: 0 8px 20px; border-bottom: 1px solid var(--border); margin-bottom: 20px;
+}
+.sb-logo { font-size: 22px; color: var(--blue); }
+.sb-name { font-family: var(--font-display); font-size: 15px; font-weight: 700; color: var(--white); line-height: 1.1; }
+.sb-name small { display: block; color: var(--muted); font-size: 10px; font-weight: 400; }
+.nav-group-label {
+  font-size: 10px; font-weight: 600; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.1em;
+  padding: 0 8px; margin: 16px 0 6px;
+}
+.nav-item {
+  display: flex; align-items: center; gap: 9px;
+  padding: 9px 10px; border-radius: var(--radius-sm);
+  font-size: 13px; font-weight: 500; color: var(--muted);
+  text-decoration: none; transition: all 0.15s; margin-bottom: 2px;
+  background: none; border: none; cursor: pointer; width: 100%; text-align: left;
+}
+.nav-item:hover { background: var(--blue-glow); color: var(--white); text-decoration: none; }
+.nav-item.active { background: var(--blue-glow); color: var(--blue); border: 1px solid rgba(14,165,233,0.2); }
+.nav-icon { font-size: 15px; width: 18px; text-align: center; flex-shrink: 0; }
+.sidebar-footer { margin-top: auto; padding-top: 16px; border-top: 1px solid var(--border); }
+.session-pill { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); padding: 6px 10px; margin-bottom: 4px; }
+.session-pill span { color: var(--gold); font-family: var(--font-mono); }
+
+.main-area { margin-left: 220px; flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+
+/* ── PAGE TOPBAR ────────────────────────────────────────── */
+.page-topbar {
+  position: sticky; top: 0; z-index: 50;
+  background: rgba(8,15,28,0.92); backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--border);
+  padding: 0 32px; height: 60px;
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+}
+.ptb-left { display: flex; align-items: center; gap: 14px; }
+.ptb-title { font-family: var(--font-display); font-size: 17px; font-weight: 700; color: var(--white); }
+.ptb-sub { font-size: 12px; color: var(--muted); }
+.mobile-menu-btn { display: none; background: none; border: none; color: var(--white); font-size: 20px; cursor: pointer; padding: 4px 8px; }
+
+/* ── BACKUP PAGE LAYOUT ─────────────────────────────────── */
+.page-body { padding: 32px; max-width: 1050px; width: 100%; margin: 0 auto; display: grid; grid-template-columns: 1fr 300px; gap: 24px; }
+
+.section-card {
+  background: var(--navy-2); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 24px 28px; margin-bottom: 24px;
+}
+.section-title {
+  font-family: var(--font-display); font-size: 14px; font-weight: 700; color: var(--blue);
+  text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 20px;
+  padding-bottom: 8px; border-bottom: 1px solid var(--border-soft);
+}
+
+/* ── BACKUP CARD BLOCKS ──────────────────────────────────── */
+.backup-zone {
+  border: 1px dashed rgba(14,165,233,0.3);
+  border-radius: var(--radius-md);
+  padding: 28px;
+  text-align: center;
+  background: rgba(14,165,233,0.03);
+  margin-bottom: 20px;
+  transition: border-color 0.2s, background 0.2s;
+}
+.backup-zone:hover { border-color: rgba(14,165,233,0.55); background: rgba(14,165,233,0.06); }
+.backup-zone-icon { font-size: 40px; margin-bottom: 12px; line-height: 1; }
+.backup-zone-title { font-family: var(--font-display); font-size: 16px; font-weight: 700; color: var(--white); margin-bottom: 6px; }
+.backup-zone-desc { font-size: 12px; color: var(--muted); line-height: 1.6; max-width: 360px; margin: 0 auto 20px; }
+
+.form-group { margin-bottom: 16px; }
+.form-label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; display: block; }
+.form-label .req { color: var(--red); margin-left: 2px; }
+.pw-wrapper { position: relative; }
+.pw-wrapper input { width: 100%; padding-right: 42px; }
+.pw-toggle {
+  position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+  background: none; border: none; cursor: pointer; color: var(--muted); font-size: 15px;
+  padding: 0; line-height: 1;
+}
+.pw-toggle:hover { color: var(--white); }
+
+.pw-strength { height: 3px; border-radius: 2px; margin-top: 6px; background: var(--navy-3); overflow: hidden; }
+.pw-strength-bar { height: 100%; border-radius: 2px; transition: width 0.3s, background 0.3s; width: 0%; }
+
+.file-drop-area {
+  border: 2px dashed rgba(14,165,233,0.3);
+  border-radius: var(--radius-md); padding: 24px;
+  text-align: center; cursor: pointer;
+  background: rgba(14,165,233,0.02);
+  transition: all 0.2s; position: relative;
+}
+.file-drop-area:hover, .file-drop-area.drag-over {
+  border-color: var(--blue); background: rgba(14,165,233,0.07);
+}
+.file-drop-area input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.file-drop-icon { font-size: 28px; margin-bottom: 8px; }
+.file-drop-text { font-size: 13px; color: var(--muted); }
+.file-drop-text strong { color: var(--blue); }
+.file-selected-name {
+  display: none; margin-top: 10px; padding: 8px 12px;
+  background: var(--navy-3); border-radius: var(--radius-sm);
+  font-size: 12px; color: var(--white); font-family: var(--font-mono);
+  word-break: break-all;
+}
+
+/* ── PROGRESS / STATUS ───────────────────────────────────── */
+.op-status {
+  display: none; align-items: center; gap: 12px;
+  padding: 14px 18px; border-radius: var(--radius-md);
+  font-size: 13px; font-weight: 500; margin-top: 16px;
+}
+.op-status.show { display: flex; }
+.op-status.working { background: rgba(14,165,233,0.1); border: 1px solid rgba(14,165,233,0.25); color: var(--blue); }
+.op-status.success { background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.25); color: var(--green); }
+.op-status.error   { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25); color: var(--red); }
+.op-spin { animation: spin 1s linear infinite; display: inline-block; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── BACKUP LOG TABLE ────────────────────────────────────── */
+.log-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.log-table th {
+  text-align: left; font-size: 10px; font-weight: 600;
+  color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em;
+  padding: 8px 12px; border-bottom: 1px solid var(--border-soft);
+}
+.log-table td { padding: 10px 12px; border-bottom: 1px solid rgba(14,165,233,0.05); vertical-align: middle; }
+.log-table tr:last-child td { border-bottom: none; }
+.log-table tr:hover td { background: rgba(14,165,233,0.03); }
+.badge-success { background: rgba(16,185,129,0.15); color: var(--green); border-radius: 4px; padding: 2px 8px; font-size: 10px; font-weight: 600; font-family: var(--font-mono); text-transform: uppercase; }
+.badge-failed  { background: rgba(239,68,68,0.15); color: var(--red); border-radius: 4px; padding: 2px 8px; font-size: 10px; font-weight: 600; font-family: var(--font-mono); text-transform: uppercase; }
+.badge-type    { background: rgba(14,165,233,0.15); color: var(--blue); border-radius: 4px; padding: 2px 8px; font-size: 10px; font-weight: 600; font-family: var(--font-mono); text-transform: uppercase; }
+
+/* ── INFO SIDEBAR ────────────────────────────────────────── */
+.info-card { background: var(--navy-2); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; margin-bottom: 20px; }
+.info-card-title { font-size: 11px; font-weight: 700; color: var(--blue); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 14px; }
+.info-row { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px; font-size: 12px; }
+.info-row:last-child { margin-bottom: 0; }
+.info-key { color: var(--muted); }
+.info-val { font-family: var(--font-mono); font-size: 11px; color: var(--white); text-align: right; max-width: 140px; word-break: break-all; }
+.info-val.good { color: var(--green); }
+.info-val.warn { color: var(--gold); }
+
+.spec-item { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 12px; font-size: 12px; color: var(--muted); line-height: 1.5; }
+.spec-item:last-child { margin-bottom: 0; }
+.spec-icon { flex-shrink: 0; margin-top: 1px; }
+
+.cloud-notice { background: rgba(245,158,11,0.06); border: 1px dashed rgba(245,158,11,0.3); border-radius: var(--radius-md); padding: 14px 16px; }
+.cloud-notice-title { font-size: 12px; font-weight: 700; color: var(--gold); margin-bottom: 6px; }
+.cloud-notice-text { font-size: 11.5px; color: var(--muted); line-height: 1.6; }
+
+/* ── MOBILE OVERLAY ─────────────────────────────────────── */
+.mobile-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 99; }
+.mobile-overlay.show { display: block; }
+
+@media (max-width: 900px) { .page-body { grid-template-columns: 1fr; } }
+@media (max-width: 768px) {
+  .sidebar { left: -240px; }
+  .sidebar.open { left: 0; }
+  .main-area { margin-left: 0; }
+  .mobile-menu-btn { display: block; }
+}
+</style>
+</head>
+<body>
+
+<div class="mobile-overlay" id="mobileOverlay"></div>
+
+<!-- toast -->
+<div id="toastContainer" aria-live="polite" aria-atomic="true" style="position: fixed; top: 76px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 8px;"></div>
+
+<!-- ── APP SHELL ──────────────────────────────────────────── -->
+<div class="app-shell">
+
+  <!-- SIDEBAR -->
+  <nav role="navigation" class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <div class="sb-logo" id="sbLogo">⬡</div>
+      <div class="sb-name">
+        <span id="sbBizName">Exchange</span>
+        <small>Management System</small>
+      </div>
+    </div>
+
+    <div class="nav-group-label">Main</div>
+    <a href="dashboard.html" class="nav-item"><span class="nav-icon">📊</span> Dashboard</a>
+    <a href="new-transaction.html" class="nav-item"><span class="nav-icon">➕</span> New Transaction</a>
+    <a href="transactions.html" class="nav-item"><span class="nav-icon">📋</span> All Transactions</a>
+    <a href="clients.html" class="nav-item"><span class="nav-icon">👥</span> Clients KYC</a>
+
+    <div class="nav-group-label">System</div>
+    <a href="chain-integrity.html" class="nav-item"><span class="nav-icon">🔐</span> Chain Integrity</a>
+    <a href="reports.html" class="nav-item"><span class="nav-icon">📑</span> Reports</a>
+    <a href="backup.html" class="nav-item active" aria-current="page"><span class="nav-icon">💾</span> Backup & Restore</a>
+    <a href="settings.html" class="nav-item"><span class="nav-icon">⚙️</span> Settings</a>
+    <a href="audit-log-view.html" class="nav-item"><span class="nav-icon">📁</span> Audit Logs</a>
+
+    <div class="sidebar-footer">
+      <div class="session-pill">⏱ Session: <span id="sessionTimer">—</span></div>
+      <button class="nav-item" id="logoutBtn"><span class="nav-icon">🚪</span> Logout</button>
+    </div>
+  </nav>
+
+  <!-- MAIN AREA -->
+  <div class="main-area">
+
+    <!-- TOPBAR -->
+    <div class="page-topbar">
+      <div class="ptb-left">
+        <button class="mobile-menu-btn" id="mobileMenuBtn">☰</button>
+        <div>
+          <div class="ptb-title">💾 Backup &amp; Restore</div>
+          <div class="ptb-sub" id="ptbSub">AES-256 encrypted local backups — Phase 08</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BODY -->
+    <div class="page-body">
+
+      <!-- LEFT COLUMN -->
+      <div>
+
+        <!-- ── EXPORT SECTION ───────────────────────────────── -->
+        <div class="section-card">
+          <div class="section-title">📤 Export Encrypted Backup</div>
+
+          <div class="backup-zone">
+            <div class="backup-zone-icon">🔒</div>
+            <div class="backup-zone-title">Create Encrypted Local Backup</div>
+            <div class="backup-zone-desc">
+              Exports the full SQLite database — all transactions, clients, audit logs, settings —
+              encrypted with AES-256-GCM using a password you choose. The password is never stored anywhere.
+            </div>
+
+            <div style="max-width: 360px; margin: 0 auto; text-align: left;">
+              <div class="form-group">
+                <label class="form-label">Backup Password <span class="req">*</span></label>
+                <div class="pw-wrapper">
+                  <input type="password" class="form-input mono" id="exportPassword"
+                         placeholder="Min 8 characters" autocomplete="new-password"
+                         oninput="updateStrength(this.value)">
+                  <button class="pw-toggle" type="button" onclick="togglePw('exportPassword', this)">👁</button>
+                </div>
+                <div class="pw-strength"><div class="pw-strength-bar" id="strengthBar"></div></div>
+                <div style="font-size:10px; color:var(--muted); margin-top:4px;" id="strengthLabel"></div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Confirm Password <span class="req">*</span></label>
+                <div class="pw-wrapper">
+                  <input type="password" class="form-input mono" id="exportPasswordConfirm"
+                         placeholder="Repeat password" autocomplete="new-password">
+                  <button class="pw-toggle" type="button" onclick="togglePw('exportPasswordConfirm', this)">👁</button>
+                </div>
+              </div>
+            </div>
+
+            <button class="btn-primary" onclick="runExport()" id="exportBtn" style="margin-top:4px;">
+              📥 Download Encrypted Backup
+            </button>
+
+            <div class="op-status" id="exportStatus"></div>
+          </div>
+
+          <div style="font-size:11px; color:var(--muted); line-height:1.7; margin-top:8px;">
+            <strong style="color:var(--white);">File format:</strong>
+            The <code style="color:var(--blue); background:var(--navy-3); padding:1px 5px; border-radius:3px;">.demsbackup</code>
+            file contains a DEMS magic header, PBKDF2-derived key material (100,000 iterations, random 16-byte salt),
+            a random 12-byte AES-GCM IV, and the ciphertext. The password is never written to disk or
+            localStorage — lose it and the backup cannot be recovered.
+          </div>
+        </div>
+
+        <!-- ── RESTORE SECTION ──────────────────────────────── -->
+        <div class="section-card">
+          <div class="section-title">📥 Restore from Backup</div>
+
+          <div style="background: rgba(239,68,68,0.05); border:1px solid rgba(239,68,68,0.2); border-radius:var(--radius-md); padding:14px 18px; margin-bottom:20px; font-size:12.5px; color:var(--muted); line-height:1.6;">
+            ⚠️ <strong style="color:var(--red);">Critical warning:</strong>
+            Restoring a backup completely overwrites your current database — all transactions, clients,
+            and audit logs will be replaced. This action cannot be undone.
+            After restore the system logs you out and reloads.
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Select Backup File (.demsbackup)</label>
+            <div class="file-drop-area" id="dropArea">
+              <input type="file" id="restoreFile" accept=".demsbackup"
+                     onchange="handleFileSelect(event)">
+              <div class="file-drop-icon">📂</div>
+              <div class="file-drop-text">
+                <strong>Click to browse</strong> or drag &amp; drop your <code>.demsbackup</code> file here
+              </div>
+              <div class="file-selected-name" id="selectedFileName"></div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Backup Password <span class="req">*</span></label>
+            <div class="pw-wrapper">
+              <input type="password" class="form-input mono" id="restorePassword"
+                     placeholder="Password used when creating the backup" autocomplete="current-password">
+              <button class="pw-toggle" type="button" onclick="togglePw('restorePassword', this)">👁</button>
+            </div>
+          </div>
+
+          <button class="btn-danger" onclick="runRestore()" id="restoreBtn">
+            ♻️ Decrypt &amp; Restore Database
+          </button>
+
+          <div class="op-status" id="restoreStatus"></div>
+        </div>
+
+        <!-- ── BACKUP LOG TABLE ─────────────────────────────── -->
+        <div class="section-card">
+          <div class="section-title">📋 Backup History</div>
+          <div id="logContainer">
+            <div style="text-align:center; padding:20px; color:var(--muted); font-size:13px;">Loading…</div>
+          </div>
+        </div>
+
+      </div><!-- /left col -->
+
+      <!-- RIGHT INFO SIDEBAR -->
+      <div>
+
+        <!-- DB Stats -->
+        <div class="info-card">
+          <div class="info-card-title">📊 Database Status</div>
+          <div class="info-row"><span class="info-key">Engine</span><span class="info-val">SQLite WASM</span></div>
+          <div class="info-row"><span class="info-key">Transactions</span><span class="info-val good" id="statTxns">—</span></div>
+          <div class="info-row"><span class="info-key">Clients</span><span class="info-val good" id="statClients">—</span></div>
+          <div class="info-row"><span class="info-key">Last backup</span><span class="info-val warn" id="statLastBackup">Never</span></div>
+          <div class="info-row"><span class="info-key">Total backups</span><span class="info-val" id="statTotalBackups">0</span></div>
+        </div>
+
+        <!-- Encryption Spec -->
+        <div class="info-card">
+          <div class="info-card-title">🔒 Encryption Specification</div>
+          <div class="spec-item"><span class="spec-icon">🔑</span><span>Key derivation: <strong style="color:var(--white);">PBKDF2-SHA-256</strong> with 100,000 iterations and a random 16-byte salt per backup</span></div>
+          <div class="spec-item"><span class="spec-icon">🔐</span><span>Cipher: <strong style="color:var(--white);">AES-256-GCM</strong> — authenticated encryption, tamper detection built-in</span></div>
+          <div class="spec-item"><span class="spec-icon">🎲</span><span>IV: random 12 bytes per backup — never reused</span></div>
+          <div class="spec-item"><span class="spec-icon">🪪</span><span>File header: <strong style="color:var(--blue);">DEMS</strong> magic + version byte for integrity check before decryption</span></div>
+          <div class="spec-item"><span class="spec-icon">🚫</span><span>Password is never stored, hashed, or transmitted — it exists only in memory during the operation</span></div>
+        </div>
+
+        <!-- Cloud notice -->
+        <div class="cloud-notice">
+          <div class="cloud-notice-title">☁️ Cloud Backup — Coming in Phase 08.2</div>
+          <div class="cloud-notice-text">
+            Firebase-based automatic daily encrypted cloud backup is planned as the next
+            increment of Phase 08. It will use the same AES-256-GCM scheme with a
+            user-managed cloud passphrase stored in no server.
+          </div>
+        </div>
+
+      </div><!-- /right col -->
+
+    </div><!-- /page-body -->
+  </div><!-- /main-area -->
+</div><!-- /app-shell -->
+
+<script src="db.js"></script>
+<script src="auth.js"></script>
+<script src="profile.js"></script>
+<script src="audit-log.js"></script>
+<script>
+'use strict';
+
+// ════════════════════════════════════════════════════════════
+//  DEMS Backup — AES-256-GCM encrypted local export/import
+//  File format (binary):
+//    [0-3]   Magic: ASCII "DEMS"  (4 bytes)
+//    [4]     Version: 0x01        (1 byte)
+//    [5-20]  PBKDF2 Salt          (16 bytes)
+//    [21-32] AES-GCM IV           (12 bytes)
+//    [33+]   AES-GCM Ciphertext   (rest)
+// ════════════════════════════════════════════════════════════
+
+const MAGIC   = [0x44, 0x45, 0x4D, 0x53]; // "DEMS"
+const VERSION = 0x01;
+const SALT_LEN = 16;
+const IV_LEN   = 12;
+const PBKDF2_ITER = 100000;
+
+// ── CRYPTO HELPERS ───────────────────────────────────────────
+
+async function deriveKey(password, salt) {
+  const pwBytes = new TextEncoder().encode(password);
+  const baseKey = await crypto.subtle.importKey(
+    'raw', pwBytes, { name: 'PBKDF2' }, false, ['deriveKey']
+  );
+  return crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt, iterations: PBKDF2_ITER, hash: 'SHA-256' },
+    baseKey,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt']
+  );
+}
+
+async function encryptDB(dbBytes, password) {
+  const salt = crypto.getRandomValues(new Uint8Array(SALT_LEN));
+  const iv   = crypto.getRandomValues(new Uint8Array(IV_LEN));
+  const key  = await deriveKey(password, salt);
+
+  const ciphertext = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv },
+    key,
+    dbBytes
+  );
+
+  // Assemble: magic(4) + version(1) + salt(16) + iv(12) + ciphertext
+  const header = new Uint8Array([...MAGIC, VERSION]);
+  const out = new Uint8Array(5 + SALT_LEN + IV_LEN + ciphertext.byteLength);
+  out.set(header,              0);
+  out.set(salt,                5);
+  out.set(iv,                  5 + SALT_LEN);
+  out.set(new Uint8Array(ciphertext), 5 + SALT_LEN + IV_LEN);
+  return out;
+}
+
+async function decryptBackup(fileBytes, password) {
+  // Verify magic header
+  const magic = Array.from(fileBytes.slice(0, 4));
+  if (!magic.every((b, i) => b === MAGIC[i])) {
+    throw new Error('Invalid file — not a DEMS backup (magic header mismatch).');
+  }
+  const version = fileBytes[4];
+  if (version !== VERSION) {
+    throw new Error(`Unsupported backup version: 0x${version.toString(16).toUpperCase()}. Expected 0x01.`);
+  }
+
+  const salt       = fileBytes.slice(5, 5 + SALT_LEN);
+  const iv         = fileBytes.slice(5 + SALT_LEN, 5 + SALT_LEN + IV_LEN);
+  const ciphertext = fileBytes.slice(5 + SALT_LEN + IV_LEN);
+
+  const key = await deriveKey(password, salt);
+
+  let plaintext;
+  try {
+    plaintext = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv },
+      key,
+      ciphertext
+    );
+  } catch {
+    throw new Error('Decryption failed — wrong password or corrupted file.');
+  }
+
+  return new Uint8Array(plaintext);
+}
+
+// ── EXPORT FLOW ──────────────────────────────────────────────
+
+async function runExport() {
+  const pw1 = document.getElementById('exportPassword').value;
+  const pw2 = document.getElementById('exportPasswordConfirm').value;
+  const btn = document.getElementById('exportBtn');
+  const status = document.getElementById('exportStatus');
+
+  // Validation
+  if (pw1.length < 8) {
+    showStatus(status, 'error', '❌ Password must be at least 8 characters.');
+    return;
+  }
+  if (pw1 !== pw2) {
+    showStatus(status, 'error', '❌ Passwords do not match. Please re-enter.');
+    return;
+  }
+
+  btn.disabled = true;
+  showStatus(status, 'working', '<span class="op-spin">⚙️</span> Exporting and encrypting database…');
+
+  const startTime = Date.now();
+  let fileSize = 0;
+  let logStatus = 'failed';
+  let logNotes  = '';
+
+  try {
+    const rawBytes = DB.exportRaw();
+    if (!rawBytes || rawBytes.length === 0) {
+      throw new Error('Database is empty or not yet initialised.');
+    }
+
+    const encrypted = await encryptDB(rawBytes, pw1);
+    fileSize = encrypted.length;
+
+    // Build filename: DEMS-Backup-YYYY-MM-DD-HHmm.demsbackup
+    const now = new Date();
+    const datePart = now.toISOString().replace('T', '-').substring(0, 16).replace(':', '');
+    const filename  = `DEMS-Backup-${datePart}.demsbackup`;
+
+    const blob = new Blob([encrypted], { type: 'application/octet-stream' });
+    const url  = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+
+    logStatus = 'success';
+    logNotes  = `File: ${filename} | Size: ${(fileSize / 1024).toFixed(1)} KB | Duration: ${Date.now() - startTime}ms`;
+
+    showStatus(status, 'success',
+      `✅ Encrypted backup downloaded: <strong>${filename}</strong> — ${(fileSize/1024).toFixed(1)} KB`);
+
+    // Clear password fields
+    document.getElementById('exportPassword').value = '';
+    document.getElementById('exportPasswordConfirm').value = '';
+    document.getElementById('strengthBar').style.width = '0%';
+    document.getElementById('strengthLabel').textContent = '';
+
+    AuditLog.add('BACKUP_CREATED', logNotes);
+    Toast.show('📥 Encrypted backup downloaded successfully!', 'success');
+
+  } catch (err) {
+    logNotes = 'Export error: ' + err.message;
+    showStatus(status, 'error', '❌ Export failed: ' + err.message);
+    AuditLog.add('BACKUP_CREATED', 'FAILED — ' + err.message);
+    Toast.show('Backup export failed: ' + err.message, 'error');
+  }
+
+  // Always write to backup_log table
+  try {
+    await DB.run(
+      `INSERT INTO backup_log (backup_type, status, file_size, backed_up_at, notes)
+       VALUES (?, ?, ?, ?, ?)`,
+      ['local', logStatus, fileSize, new Date().toISOString(), logNotes]
+    );
+  } catch (dbErr) {
+    console.warn('[Backup] Failed to write backup_log entry:', dbErr.message);
+  }
+
+  btn.disabled = false;
+  await refreshStats();
+  await loadBackupLog();
+}
+
+// ── RESTORE FLOW ─────────────────────────────────────────────
+
+let _selectedRestoreFile = null;
+
+function handleFileSelect(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  _selectedRestoreFile = file;
+  const nameEl = document.getElementById('selectedFileName');
+  nameEl.textContent = `📎 ${file.name}  (${(file.size / 1024).toFixed(1)} KB)`;
+  nameEl.style.display = 'block';
+
+  // Drag area
+  document.getElementById('dropArea').style.borderColor = 'var(--blue)';
+}
+
+async function runRestore() {
+  const pw  = document.getElementById('restorePassword').value;
+  const btn = document.getElementById('restoreBtn');
+  const status = document.getElementById('restoreStatus');
+
+  if (!_selectedRestoreFile) {
+    showStatus(status, 'error', '❌ No backup file selected.');
+    return;
+  }
+  if (!pw) {
+    showStatus(status, 'error', '❌ Please enter the backup password.');
+    return;
+  }
+
+  // Double-confirm
+  const ok = confirm(
+    '⚠️  CRITICAL WARNING  ⚠️\n\n' +
+    'Restoring this backup will permanently overwrite your entire active database —\n' +
+    'all transactions, clients, audit logs, and settings will be replaced.\n\n' +
+    'This action CANNOT be undone.\n\n' +
+    'Type "RESTORE" in the next prompt to confirm.'
+  );
+  if (!ok) return;
+
+  const confirm2 = window.prompt('Type RESTORE (all caps) to proceed:');
+  if (confirm2 !== 'RESTORE') {
+    showStatus(status, 'error', '❌ Restore cancelled — confirmation word did not match.');
+    return;
+  }
+
+  btn.disabled = true;
+  showStatus(status, 'working', '<span class="op-spin">🔓</span> Decrypting backup file…');
+
+  const startTime = Date.now();
+  let logStatus = 'failed';
+  let logNotes  = `File: ${_selectedRestoreFile.name}`;
+
+  try {
+    const fileBuffer = await _selectedRestoreFile.arrayBuffer();
+    const fileBytes  = new Uint8Array(fileBuffer);
+
+    showStatus(status, 'working', '<span class="op-spin">🔓</span> Decryption successful — loading into database…');
+
+    const dbBytes = await decryptBackup(fileBytes, pw);
+
+    await DB.importRaw(dbBytes);
+
+    // INTEGRITY-FIX 2: Verify chain immediately after restore.
+    // A corrupt or tampered backup will import without error (the AES-GCM tag
+    // only proves the file wasn't altered after encryption; it says nothing
+    // about whether the chain was intact inside the original DB). Running
+    // verifyChain() here catches that case and surfaces it to the operator
+    // before the 3-second logout countdown begins, giving them a chance to
+    // act rather than silently inheriting a broken ledger.
+    try {
+      const verifyResult = await HashEngine.verifyChain();
+      if (!verifyResult.chainIntact) {
+        showStatus(restoreStatus, 'error',
+          `Restore completed but chain integrity check FAILED: ${verifyResult.message}. This backup may be corrupted or tampered. Proceed with caution.`);
+        await AuditLog.add('RESTORE_CHAIN_FAIL', `Chain compromised after restore: ${verifyResult.message}`);
+      }
+    } catch (verifyErr) {
+      // HashEngine unavailable (e.g. not yet loaded) — log and continue.
+      console.warn('[Restore] Chain verify skipped:', verifyErr.message);
+      await AuditLog.add('RESTORE_CHAIN_FAIL', `Chain verify threw during restore: ${verifyErr.message}`);
+    }
+
+    logStatus = 'success';
+    logNotes += ` | Duration: ${Date.now() - startTime}ms`;
+
+    // Write log BEFORE losing the DB session
+    try {
+      await DB.run(
+        `INSERT INTO backup_log (backup_type, status, file_size, backed_up_at, notes)
+         VALUES (?, ?, ?, ?, ?)`,
+        ['local', logStatus, _selectedRestoreFile.size, new Date().toISOString(), logNotes + ' | RESTORE']
+      );
+    } catch {}
+
+    AuditLog.add('BACKUP_RESTORED', logNotes);
+
+    showStatus(status, 'success',
+      '✅ Database restored successfully! Logging out and reloading in 3 seconds…');
+    Toast.show('⚡ Restore complete — reloading system…', 'success');
+
+    setTimeout(() => {
+      localStorage.removeItem('dems_session');
+      window.location.href = 'index.html';
+    }, 3000);
+
+  } catch (err) {
+    logNotes += ' | ERROR: ' + err.message;
+    showStatus(status, 'error', '❌ Restore failed: ' + err.message);
+    AuditLog.add('BACKUP_RESTORED', 'FAILED — ' + err.message);
+
+    try {
+      await DB.run(
+        `INSERT INTO backup_log (backup_type, status, file_size, backed_up_at, notes)
+         VALUES (?, ?, ?, ?, ?)`,
+        ['local', 'failed', _selectedRestoreFile.size, new Date().toISOString(), logNotes]
+      );
+    } catch {}
+
+    Toast.show('Restore failed: ' + err.message, 'error');
+    btn.disabled = false;
+  }
+}
+
+// ── BACKUP LOG TABLE ─────────────────────────────────────────
+
+async function loadBackupLog() {
+  const container = document.getElementById('logContainer');
+  try {
+    const rows = await DB.all(
+      `SELECT * FROM backup_log ORDER BY id DESC LIMIT 30`
+    );
+
+    if (!rows.length) {
+      container.innerHTML = `<div style="text-align:center; padding:20px; color:var(--muted); font-size:13px;">No backups recorded yet.</div>`;
+      return;
+    }
+
+    const rowsHtml = rows.map(r => {
+      const ts = r.backed_up_at ? r.backed_up_at.replace('T', ' ').substring(0, 16) : '—';
+      const sz = r.file_size > 0 ? (r.file_size / 1024).toFixed(1) + ' KB' : '—';
+      return `<tr>
+        <td><span class="badge-type">${escHtml(r.backup_type)}</span></td>
+        <td><span class="${r.status === 'success' ? 'badge-success' : 'badge-failed'}">${escHtml(r.status)}</span></td>
+        <td style="font-family:var(--font-mono); color:var(--muted);">${sz}</td>
+        <td style="font-family:var(--font-mono); color:var(--muted); font-size:11px;">${ts}</td>
+        <td style="color:var(--muted); font-size:11px; max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"
+            title="${escHtml(r.notes || '')}">${escHtml((r.notes || '').substring(0, 60))}</td>
+      </tr>`;
+    }).join('');
+
+    container.innerHTML = `
+      <table class="log-table">
+        <thead>
+          <tr>
+            <th>Type</th>
+            <th>Status</th>
+            <th>Size</th>
+            <th>Date (UTC)</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>`;
+  } catch (err) {
+    container.innerHTML = `<div style="color:var(--red); font-size:12px; padding:16px;">Error loading backup log: ${escHtml(err.message)}</div>`;
+  }
+}
+
+// ── STATS PANEL ──────────────────────────────────────────────
+
+async function refreshStats() {
+  try {
+    const stats = await DB.getStats();
+    setTxt('statTxns',    stats.totalTransactions);
+    setTxt('statClients', stats.totalClients);
+
+    const lastRow = await DB.get(
+      `SELECT backed_up_at FROM backup_log WHERE status='success' ORDER BY id DESC LIMIT 1`
+    );
+    if (lastRow) {
+      const d = lastRow.backed_up_at.replace('T', ' ').substring(0, 16);
+      setTxt('statLastBackup', d);
+      document.getElementById('statLastBackup').className = 'info-val good';
+    }
+
+    const countRow = await DB.get(
+      `SELECT COUNT(*) as c FROM backup_log WHERE status='success'`
+    );
+    setTxt('statTotalBackups', countRow?.c || 0);
+  } catch {}
+}
+
+// ── PASSWORD STRENGTH METER ──────────────────────────────────
+
+function updateStrength(pw) {
+  const bar   = document.getElementById('strengthBar');
+  const label = document.getElementById('strengthLabel');
+  if (!pw) { bar.style.width = '0%'; label.textContent = ''; return; }
+
+  let score = 0;
+  if (pw.length >= 8)  score++;
+  if (pw.length >= 12) score++;
+  if (/[A-Z]/.test(pw)) score++;
+  if (/[0-9]/.test(pw)) score++;
+  if (/[^A-Za-z0-9]/.test(pw)) score++;
+
+  const levels = [
+    { pct: '15%', color: 'var(--red)',   text: 'Very weak' },
+    { pct: '30%', color: 'var(--red)',   text: 'Weak' },
+    { pct: '55%', color: 'var(--gold)',  text: 'Fair' },
+    { pct: '75%', color: 'var(--gold)',  text: 'Good' },
+    { pct: '100%',color: 'var(--green)', text: 'Strong' },
+  ];
+  const lvl = levels[Math.min(score, 4)];
+  bar.style.width      = lvl.pct;
+  bar.style.background = lvl.color;
+  label.textContent    = lvl.text;
+  label.style.color    = lvl.color;
+}
+
+// ── DRAG AND DROP ─────────────────────────────────────────────
+
+function setupDragDrop() {
+  const zone = document.getElementById('dropArea');
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    zone.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (!file) return;
+    if (!file.name.endsWith('.demsbackup')) {
+      Toast.show('Only .demsbackup files are accepted.', 'error'); return;
+    }
+    _selectedRestoreFile = file;
+    const nameEl = document.getElementById('selectedFileName');
+    nameEl.textContent = `📎 ${file.name}  (${(file.size / 1024).toFixed(1)} KB)`;
+    nameEl.style.display = 'block';
+    zone.style.borderColor = 'var(--blue)';
+  });
+}
+
+// ── UTILS ─────────────────────────────────────────────────────
+
+function togglePw(inputId, btn) {
+  const inp = document.getElementById(inputId);
+  if (inp.type === 'password') { inp.type = 'text'; btn.textContent = '🙈'; }
+  else { inp.type = 'password'; btn.textContent = '👁'; }
+}
+
+function showStatus(el, type, html) {
+  el.className = `op-status show ${type}`;
+  el.innerHTML = html;
+}
+
+function setTxt(id, v) { const e = document.getElementById(id); if (e) e.textContent = v; }
+
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function setupSession() {
+  function tick() {
+    try {
+      const raw = localStorage.getItem('dems_session');
+      if (!raw) return;
+      const s   = JSON.parse(raw);
+      const left = Math.max(0, Math.floor((s.expiresAt - Date.now()) / 1000));
+      const m    = Math.floor(left / 60), sec = left % 60;
+      setTxt('sessionTimer', m + ':' + String(sec).padStart(2, '0'));
+    } catch {}
+  }
+  tick(); setInterval(tick, 1000);
+}
+
+function setupLogout() {
+  document.getElementById('logoutBtn').addEventListener('click', () => Auth.logout());
+}
+
+function setupMobileNav() {
+  const btn = document.getElementById('mobileMenuBtn');
+  const sb  = document.getElementById('sidebar');
+  const ov  = document.getElementById('mobileOverlay');
+  if (!btn) return;
+  btn.addEventListener('click', () => { sb.classList.toggle('open'); ov.classList.toggle('show'); });
+  ov.addEventListener('click', () => { sb.classList.remove('open'); ov.classList.remove('show'); });
+}
+
+const Toast = {
+  show(msg, type = 'info', dur = 3500) {
+    const c = document.getElementById('toastContainer');
+    const t = document.createElement('div');
+    const icons = { success: '✅', error: '❌', info: 'ℹ️', warning: '⚠️' };
+    t.className = `toast ${type}`;
+    t.innerHTML = `<span>${icons[type] || 'ℹ️'}</span><span>${msg}</span>`;
+    c.appendChild(t);
+    setTimeout(() => { t.style.opacity = '0'; t.style.transition = 'opacity 0.3s'; setTimeout(() => t.remove(), 300); }, dur);
+  }
+};
+
+// ── BOOT ──────────────────────────────────────────────────────
+
+window.addEventListener('DOMContentLoaded', async () => {
+  // ── SECURITY GUARD — must be first ──
+  if (!Auth.requireAuth()) return;
+
+  await DB.init();
+
+  // Populate sidebar brand
+  try {
+    const profile = await Profile.get();
+    if (profile) {
+      document.getElementById('sbLogo').textContent    = profile.logoEmoji   || '⬡';
+      document.getElementById('sbBizName').textContent = profile.businessName || 'Exchange';
+    }
+  } catch {}
+
+  setupSession();
+  setupLogout();
+  setupMobileNav();
+  setupDragDrop();
+
+  await refreshStats();
+  await loadBackupLog();
+});
+</script>
+</body>
+</html>

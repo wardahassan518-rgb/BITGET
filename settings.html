@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy"
+  content="default-src 'self';
+           script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com;
+           style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com;
+           font-src https://fonts.gstatic.com;
+           connect-src 'self' https://worldtimeapi.org;
+           img-src 'self' data: blob:;
+           object-src 'none';
+           base-uri 'self';">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>System Settings — DEMS</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<style>
+/* ── LAYOUT ─────────────────────────────────────────────── */
+.app-shell { display: flex; min-height: 100vh; }
+
+.sidebar {
+  width: 220px; flex-shrink: 0;
+  background: var(--navy-2);
+  border-right: 1px solid var(--border);
+  padding: 24px 12px;
+  position: fixed; top: 0; left: 0; height: 100vh;
+  overflow-y: auto; z-index: 100;
+  display: flex; flex-direction: column;
+  transition: left 0.25s;
+}
+.sidebar-brand {
+  display: flex; align-items: center; gap: 10px;
+  padding: 0 8px 20px; border-bottom: 1px solid var(--border); margin-bottom: 20px;
+}
+.sb-logo { font-size: 22px; color: var(--blue); }
+.sb-name { font-family: var(--font-display); font-size: 15px; font-weight: 700; color: var(--white); line-height: 1.1; }
+.sb-name small { display: block; color: var(--muted); font-size: 10px; font-weight: 400; }
+.nav-group-label {
+  font-size: 10px; font-weight: 600; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.1em;
+  padding: 0 8px; margin: 16px 0 6px;
+}
+.nav-item {
+  display: flex; align-items: center; gap: 9px;
+  padding: 9px 10px; border-radius: var(--radius-sm);
+  font-size: 13px; font-weight: 500; color: var(--muted);
+  text-decoration: none; transition: all 0.15s; margin-bottom: 2px;
+  background: none; border: none; cursor: pointer; width: 100%; text-align: left;
+}
+.nav-item:hover { background: var(--blue-glow); color: var(--white); text-decoration: none; }
+.nav-item.active { background: var(--blue-glow); color: var(--blue); border: 1px solid rgba(14,165,233,0.2); }
+.nav-icon { font-size: 15px; width: 18px; text-align: center; flex-shrink: 0; }
+.sidebar-footer { margin-top: auto; padding-top: 16px; border-top: 1px solid var(--border); }
+.session-pill { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); padding: 6px 10px; margin-bottom: 4px; }
+.session-pill span { color: var(--gold); font-family: var(--font-mono); }
+
+.main-area { margin-left: 220px; flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+
+/* ── PAGE TOPBAR ────────────────────────────────────────── */
+.page-topbar {
+  position: sticky; top: 0; z-index: 50;
+  background: rgba(8,15,28,0.92); backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--border);
+  padding: 0 32px; height: 60px;
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+}
+.ptb-left { display: flex; align-items: center; gap: 14px; }
+.ptb-title { font-family: var(--font-display); font-size: 17px; font-weight: 700; color: var(--white); }
+.ptb-sub { font-size: 12px; color: var(--muted); }
+.mobile-menu-btn { display: none; background: none; border: none; color: var(--white); font-size: 20px; cursor: pointer; padding: 4px 8px; }
+
+/* ── SETTINGS LAYOUT ────────────────────────────────────── */
+.page-body { padding: 32px; max-width: 1050px; width: 100%; margin: 0 auto; display: grid; grid-template-columns: 1fr 320px; gap: 24px; }
+
+.section-card {
+  background: var(--navy-2); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 24px 28px; margin-bottom: 24px;
+}
+.section-title {
+  font-family: var(--font-display); font-size: 14px; font-weight: 700; color: var(--blue);
+  text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 20px;
+  padding-bottom: 8px; border-bottom: 1px solid var(--border-soft);
+}
+
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+.form-row.triple { grid-template-columns: 1fr 1fr 1fr; }
+.form-group { margin-bottom: 16px; }
+.form-group:last-child { margin-bottom: 0; }
+.form-label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; display: block; }
+.form-label .req { color: var(--red); margin-left: 2px; }
+
+/* Panel maintenance tools */
+.maint-tool { display: flex; align-items: center; justify-content: space-between; padding: 14px 0; border-bottom: 1px solid var(--border-soft); }
+.maint-tool:last-child { border-bottom: none; }
+.maint-txt { flex: 1; margin-right: 16px; }
+.maint-name { font-size: 13.5px; font-weight: 600; color: var(--white); }
+.maint-desc { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+.danger-box { background: rgba(239, 68, 68, 0.04); border: 1px dashed rgba(239, 68, 68, 0.3); border-radius: var(--radius-md); padding: 14px 18px; margin-top: 14px; }
+
+/* AML / Compliance threshold field */
+.field-help-text { font-size: 11px; color: var(--muted); margin-top: 6px; line-height: 1.5; }
+.pkr-prefix-wrapper { position: relative; }
+.pkr-prefix-wrapper .pkr-prefix { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); font-size: 13px; color: var(--muted); font-family: var(--font-mono); pointer-events: none; }
+.pkr-prefix-wrapper .form-input { padding-left: 32px; }
+
+/* Nav list panel */
+.nav-link-item { display: block; padding: 10px 14px; border-radius: var(--radius-sm); color: var(--muted); font-size: 12.5px; font-weight: 500; text-decoration: none; margin-bottom: 4px; }
+.nav-link-item:hover { background: var(--navy-3); color: var(--white); }
+.nav-link-item.active { background: var(--blue-glow); color: var(--blue); }
+
+/* Smooth scrolling for Settings Quick Links — purely visual, no layout change */
+html { scroll-behavior: smooth; }
+.section-card { scroll-margin-top: 76px; } /* keeps target clear of sticky topbar */
+
+/* ── MOBILE OVERLAY ─────────────────────────────────────── */
+.mobile-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 99; }
+.mobile-overlay.show { display: block; }
+
+@media (max-width: 860px) {
+  .page-body { grid-template-columns: 1fr; }
+}
+@media (max-width: 768px) {
+  .sidebar { left: -240px; }
+  .sidebar.open { left: 0; }
+  .main-area { margin-left: 0; }
+  .mobile-menu-btn { display: block; }
+  .form-row, .form-row.triple { grid-template-columns: 1fr; }
+}
+
+/* ── STORAGE MONITOR ────────────────────────────────────── */
+.storage-stats-row {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px;
+}
+.storage-stat {
+  background: rgba(255,255,255,0.03); border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md); padding: 14px 16px; text-align: center;
+  transition: border-color 0.3s;
+}
+.storage-stat-val {
+  font-family: var(--font-mono); font-size: 15px; font-weight: 600;
+  color: var(--white); margin-bottom: 4px; letter-spacing: 0.02em;
+}
+.storage-stat-lbl {
+  font-size: 10px; font-weight: 600; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.07em;
+}
+.storage-bar-wrap { margin-bottom: 16px; }
+.storage-bar-track {
+  position: relative; height: 10px;
+  background: rgba(255,255,255,0.07);
+  border-radius: 999px; overflow: visible; margin-bottom: 10px;
+}
+.storage-bar-fill {
+  height: 100%; border-radius: 999px;
+  transition: width 0.65s cubic-bezier(0.4,0,0.2,1), background 0.4s ease;
+  min-width: 0; position: relative; z-index: 1; overflow: hidden;
+}
+.stor-fill-healthy  { background: linear-gradient(90deg,#0ea5e9,#38bdf8); }
+.stor-fill-warning  { background: linear-gradient(90deg,#f59e0b,#fbbf24); }
+.stor-fill-critical { background: linear-gradient(90deg,#ef4444,#f87171); }
+.storage-bar-marker {
+  position: absolute; top: -3px; bottom: -3px; width: 2px;
+  background: rgba(255,255,255,0.18); border-radius: 2px;
+  pointer-events: none; z-index: 2;
+}
+.storage-bar-legend {
+  display: flex; gap: 18px; flex-wrap: wrap;
+  font-size: 10px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.07em;
+}
+.stor-leg-healthy  { color: #38bdf8; }
+.stor-leg-warning  { color: #fbbf24; }
+.stor-leg-critical { color: #f87171; }
+.storage-status-pill {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px; border-radius: var(--radius-md);
+  font-size: 12.5px; font-weight: 500; border: 1px solid;
+  margin-bottom: 14px; transition: background 0.3s, border-color 0.3s;
+}
+.stor-pill-healthy  { background: rgba(14,165,233,0.07);  border-color: rgba(14,165,233,0.25); color: #38bdf8; }
+.stor-pill-warning  { background: rgba(245,158,11,0.07);  border-color: rgba(245,158,11,0.28);  color: #fbbf24; }
+.stor-pill-critical { background: rgba(239,68,68,0.07);   border-color: rgba(239,68,68,0.30);   color: #f87171; }
+.storage-warning-banner {
+  display: flex; gap: 12px; align-items: flex-start;
+  padding: 14px 16px; border-radius: var(--radius-md);
+  background: rgba(239,68,68,0.06); border: 1px solid rgba(239,68,68,0.28);
+  margin-bottom: 18px;
+}
+@media (max-width: 680px) { .storage-stats-row { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 420px) { .storage-stats-row { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<div class="mobile-overlay" id="mobileOverlay"></div>
+
+<!-- toast -->
+<div id="toastContainer" aria-live="polite" aria-atomic="true" style="position: fixed; top: 76px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 8px;"></div>
+
+<!-- ── APP SHELL ──────────────────────────────────────────── -->
+<div class="app-shell">
+
+  <!-- SIDEBAR -->
+  <nav role="navigation" class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <div class="sb-logo" id="sbLogo">⬡</div>
+      <div class="sb-name">
+        <span id="sbBizName">Exchange</span>
+        <small>Management System</small>
+      </div>
+    </div>
+
+    <div class="nav-group-label">Main</div>
+    <a href="dashboard.html" class="nav-item"><span class="nav-icon">📊</span> Dashboard</a>
+    <a href="new-transaction.html" class="nav-item"><span class="nav-icon">➕</span> New Transaction</a>
+    <a href="transactions.html" class="nav-item"><span class="nav-icon">📋</span> All Transactions</a>
+    <a href="clients.html" class="nav-item"><span class="nav-icon">👥</span> Clients KYC</a>
+
+    <div class="nav-group-label">System</div>
+    <a href="chain-integrity.html" class="nav-item"><span class="nav-icon">🔐</span> Chain Integrity</a>
+    <a href="reports.html" class="nav-item"><span class="nav-icon">📑</span> Reports</a>
+    <a href="backup.html" class="nav-item"><span class="nav-icon">💾</span> Backup &amp; Restore</a>
+    <a href="settings.html" class="nav-item active" aria-current="page"><span class="nav-icon">⚙️</span> Settings</a>
+    <a href="audit-log-view.html" class="nav-item"><span class="nav-icon">📁</span> Audit Logs</a>
+
+    <div class="sidebar-footer">
+      <div class="session-pill">⏱ Session: <span id="sessionTimer">—</span></div>
+      <button class="nav-item" id="logoutBtn"><span class="nav-icon">🚪</span> Logout</button>
+    </div>
+  </nav>
+
+  <!-- MAIN AREA -->
+  <div class="main-area">
+
+    <!-- TOPBAR -->
+    <div class="page-topbar">
+      <div class="ptb-left">
+        <button class="mobile-menu-btn" id="mobileMenuBtn">☰</button>
+        <div>
+          <div class="ptb-title">⚙️ System Settings</div>
+          <div class="ptb-sub" id="ptbSub">Manage profiles, change credentials & execute overrides</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BODY -->
+    <div class="page-body">
+
+      <!-- LEFT: Forms sections -->
+      <div>
+        
+        <!-- 1. Profile update block -->
+        <div class="section-card">
+          <div class="section-title">🏢 Business Profile Details</div>
+          <form id="profileForm" onsubmit="return false;">
+            
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Business Name <span class="req">*</span></label>
+                <input type="text" class="form-input" id="fBusinessName" required aria-required="true">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Logo Emoji <span class="req">*</span></label>
+                <select class="form-input" id="fLogoEmoji">
+                  <option>⬡</option><option>🪙</option><option>💵</option>
+                  <option>📈</option><option>🏛️</option><option>💎</option>
+                  <option>💼</option><option>🌌</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-row triple">
+              <div class="form-group">
+                <label class="form-label">City <span class="req">*</span></label>
+                <input type="text" class="form-input" id="fCity" required aria-required="true">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Area <span class="req">*</span></label>
+                <input type="text" class="form-input" id="fArea" required aria-required="true">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Full Street Address <span class="req">*</span></label>
+                <input type="text" class="form-input" id="fAddress" required aria-required="true">
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Contact Landline</label>
+                <input type="text" class="form-input" id="fPhone">
+              </div>
+              <div class="form-group">
+                <label class="form-label">WhatsApp Number <span class="req">*</span></label>
+                <input type="text" class="form-input" id="fWhatsapp" placeholder="+923001234567" required aria-required="true">
+              </div>
+            </div>
+
+            <div class="form-row triple">
+              <div class="form-group">
+                <label class="form-label">SECP Reg Number <span class="req">*</span></label>
+                <input type="text" class="form-input" id="fSecpNumber" required aria-required="true">
+              </div>
+              <div class="form-group">
+                <label class="form-label">NTN Code Number</label>
+                <input type="text" class="form-input" id="fNtnNumber">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Session Timeout <span class="subtitle">(minutes)</span></label>
+                <input type="number" class="form-input" id="fSessionTimeout" min="2" max="60" value="15">
+              </div>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 20px;">
+              <label class="form-label">Default Receipt Footer Text</label>
+              <textarea class="form-input" id="fReceiptFooter" rows="2" placeholder="This block is finalized cryptographically…"></textarea>
+            </div>
+
+            <div style="display:flex; justify-content:flex-end;">
+              <button class="btn-primary" onclick="saveBusinessProfile()">💾 Save Profile Updates</button>
+            </div>
+
+          </form>
+        </div>
+
+        <!-- 2. Credential block -->
+        <div class="section-card">
+          <div class="section-title">🔐 Change Access Security PIN</div>
+          <form id="pinForm" onsubmit="return false;">
+            
+            <div class="form-row triple">
+              <div class="form-group">
+                <label class="form-label">Current PIN <span class="req">*</span></label>
+                <input type="password" class="form-input mono" id="fCurrentPin" placeholder="••••" maxlength="4" required aria-required="true">
+              </div>
+              <div class="form-group">
+                <label class="form-label">New PIN <span class="req">*</span></label>
+                <input type="password" class="form-input mono" id="fNewPin" placeholder="••••" maxlength="4" required aria-required="true">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Confirm New PIN <span class="req">*</span></label>
+                <input type="password" class="form-input mono" id="fConfirmPin" placeholder="••••" maxlength="4" required aria-required="true">
+              </div>
+            </div>
+
+            <div style="display:flex; justify-content:flex-end;">
+              <button type="button" class="btn-primary" id="savePinBtn" onclick="saveAccessPin()">🔑 Save Pin Code</button>
+            </div>
+
+          </form>
+        </div>
+
+        <!-- 3. Compliance / AML threshold block -->
+        <div class="section-card" id="complianceForm">
+          <div class="section-title">🛡️ Compliance (AML)</div>
+          <form onsubmit="return false;">
+
+            <div class="form-group">
+              <label class="form-label">CNIC Required Above <span class="subtitle">(PKR, AML threshold)</span></label>
+              <div class="pkr-prefix-wrapper" style="max-width:260px;">
+                <span class="pkr-prefix">₨</span>
+                <input type="number" class="form-input" id="fAmlCnicThreshold" min="0" step="1000" placeholder="1000000">
+              </div>
+              <div class="field-help-text">
+                Transactions with PKR volume above this amount will require the client's CNIC before the transaction can be locked. This applies in New Transaction and helps satisfy AML record-keeping requirements. Default: ₨ 1,000,000.
+              </div>
+            </div>
+
+            <div style="display:flex; justify-content:flex-end;">
+              <button class="btn-primary" onclick="saveComplianceSettings()">🛡️ Save Compliance Settings</button>
+            </div>
+
+          </form>
+        </div>
+
+        <!-- 4. Backup and database restore box -->
+        <div class="section-card" id="maintenance">
+          <div class="section-title">💾 System Maintenance & Offline Backups</div>
+
+          <div class="maint-tool">
+            <div class="maint-txt">
+              <div class="maint-name">Export Ledger Database</div>
+              <div class="maint-desc">Download the entire database state (.db format containing all blocks, clients, and audits) to keep local offline backups.</div>
+            </div>
+            <button class="btn-secondary" onclick="exportDataFile()">📥 Export .db file</button>
+          </div>
+
+          <div class="maint-tool">
+            <div class="maint-txt">
+              <div class="maint-name">Restore from Backup</div>
+              <div class="maint-desc">Raw, unencrypted database import has been removed for security. Use the encrypted backup &amp; restore flow instead — it verifies the backup's integrity before touching your active ledger.</div>
+            </div>
+            <a class="btn-secondary" href="backup.html" style="text-decoration:none; display:inline-flex; align-items:center;">🔐 Go to Encrypted Restore</a>
+          </div>
+
+          <div class="maint-tool" style="border-bottom:none; flex-direction:column; align-items:stretch; gap:14px;">
+
+            <!-- PERMANENT IMMUTABILITY NOTICE — not dismissible, no delete option exists below it -->
+            <div style="display:flex; gap:12px; align-items:flex-start; padding:14px 16px; border-radius:var(--radius-md); background:rgba(239,68,68,0.06); border:1px solid rgba(239,68,68,0.25);">
+              <div style="font-size:20px; line-height:1;">🔒</div>
+              <div style="font-size:12px; line-height:1.6; color:var(--muted);">
+                <strong style="color:var(--red); display:block; margin-bottom:4px;">Financial records cannot be deleted from this system.</strong>
+                Transactions, receipts, the verification log, and the audit log are permanent by design (<span style="font-family:var(--font-mono); font-size:11px;">noDeleteAllowed</span> / <span style="font-family:var(--font-mono); font-size:11px;">transactionImmutable</span>). No control in this app — including the option below — can erase them. This is intentional and cannot be overridden from the UI.
+              </div>
+            </div>
+
+            <!-- ARCHIVE INSTEAD OF DELETE -->
+            <div class="maint-tool" style="border-bottom:none; padding:0;">
+              <div class="maint-txt">
+                <div class="maint-name">Starting a Fresh Financial Period?</div>
+                <div class="maint-desc">Don't delete old data — export a full backup of the database first, then move that file to archival storage (e.g. cold storage, a separate encrypted drive). The ledger here stays complete and queryable; archiving just relocates your <em>copy</em> of closed-period data out of daily view.</div>
+              </div>
+              <button class="btn-secondary" onclick="exportDataFile()">📦 Export Full Backup</button>
+            </div>
+
+            <!-- APP CONFIG RESET (renamed/scoped from old Factory Reset) -->
+            <div class="maint-tool" style="border-bottom:none; padding:0; border-top:1px dashed var(--border-soft); padding-top:14px;">
+              <div class="maint-txt">
+                <div class="maint-name" style="color:var(--red);">Reset App Configuration & Login</div>
+                <div class="maint-desc">Clears business profile, PIN/password, and app settings only — for "I'm locked out / misconfigured the setup" cases. <strong style="color:var(--white);">Does not touch transactions, receipts, verification log, or audit log.</strong> You'll be returned to onboarding to set up credentials again.</div>
+              </div>
+              <button class="btn-danger" onclick="triggerFactoryReset()">⚙️ Reset Config & Login Only</button>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- 5. Storage Usage Monitor -->
+        <div class="section-card" id="storageMonitor">
+          <div class="section-title">📊 Storage Usage Monitor</div>
+
+          <!-- Critical warning banner — visible only when usage >80% -->
+          <div class="storage-warning-banner" id="storageWarningBanner" style="display:none;">
+            <div style="font-size:20px; line-height:1; flex-shrink:0;">⚠️</div>
+            <div style="font-size:12px; line-height:1.65; color:var(--muted);">
+              <strong style="color:#f87171; display:block; margin-bottom:4px;">Storage critically full — immediate action recommended.</strong>
+              Browser storage is above 80% capacity. Data write failures may occur if limits are reached. Export a full database backup now and move completed financial periods to archival storage to free up space.
+              <div style="margin-top:10px;">
+                <button class="btn-secondary" onclick="exportDataFile()" style="font-size:11px; padding:6px 14px;">📥 Export Backup Now</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 4 stat tiles -->
+          <div class="storage-stats-row">
+            <div class="storage-stat">
+              <div class="storage-stat-val" id="storDbSize">—</div>
+              <div class="storage-stat-lbl">Database Size</div>
+            </div>
+            <div class="storage-stat">
+              <div class="storage-stat-val" id="storTotalUsed">—</div>
+              <div class="storage-stat-lbl">Total Used</div>
+            </div>
+            <div class="storage-stat">
+              <div class="storage-stat-val" id="storLimit">~5.00 MB</div>
+              <div class="storage-stat-lbl">Est. Limit</div>
+            </div>
+            <div class="storage-stat" id="storPctTile">
+              <div class="storage-stat-val" id="storPct">—</div>
+              <div class="storage-stat-lbl">Usage</div>
+            </div>
+          </div>
+
+          <!-- Progress bar with zone markers -->
+          <div class="storage-bar-wrap">
+            <div class="storage-bar-track">
+              <div class="storage-bar-fill stor-fill-healthy" id="storBarFill" style="width:0%;"></div>
+              <div class="storage-bar-marker" style="left:50%;" title="50% threshold"></div>
+              <div class="storage-bar-marker" style="left:80%;" title="80% threshold"></div>
+            </div>
+            <div class="storage-bar-legend">
+              <span class="stor-leg-healthy">● Healthy &lt;50%</span>
+              <span class="stor-leg-warning">● Warning 50–80%</span>
+              <span class="stor-leg-critical">● Critical &gt;80%</span>
+            </div>
+          </div>
+
+          <!-- Status pill -->
+          <div class="storage-status-pill stor-pill-healthy" id="storStatusPill">
+            <span id="storStatusIcon">⏳</span>
+            <span id="storStatusText">Calculating storage usage…</span>
+          </div>
+
+          <!-- Footer row: last-updated label + manual refresh -->
+          <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+            <span style="font-size:11px; color:var(--muted);" id="storLastUpdated">Not yet measured</span>
+            <button class="btn-secondary" onclick="StorageMonitor.update()" style="font-size:11px; padding:6px 14px;">↻ Refresh</button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- RIGHT: Side navigation shortcuts info -->
+      <div>
+        <div class="section-card" style="padding: 20px;">
+          <div class="pane-title">🛠️ Settings Quick Links</div>
+          <a class="nav-link-item active" href="#profileForm">Business Profile</a>
+          <a class="nav-link-item" href="#pinForm">Credential Management</a>
+          <a class="nav-link-item" href="#complianceForm">Compliance (AML)</a>
+          <a class="nav-link-item" href="#maintenance">Backups & Recovery</a>
+          <a class="nav-link-item" href="#storageMonitor">Storage Monitor</a>
+          <div style="border-top:1px solid var(--border-soft); margin-top:20px; padding-top:20px; font-size:11.5px; color:var(--muted); line-height:1.6;">
+            <strong>DEMS Cryptographic Node v1.2</strong><br>
+            All SQLite tables have indexes deployed. Hashing engine runs Web Crypto Native SHA-256 signatures immediately.
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /body -->
+  </div><!-- /main area -->
+</div><!-- /app shell -->
+
+<script src="db.js"></script>
+<script src="auth.js"></script>
+<script src="profile.js"></script>
+<script src="audit-log.js"></script>
+<script>
+'use strict';
+
+// ── STATE ─────────────────────────────────────────────────
+let _profile = null;
+
+// ── STORAGE MONITOR ───────────────────────────────────────
+// Estimates localStorage usage against the ~5MB browser quota and reflects
+// it in the Storage Monitor panel. Bound to the "↻ Refresh" button and also
+// run once on page load below.
+const StorageMonitor = {
+  update() {
+    try {
+      let usedBytes = 0;
+      let dbBytes = 0;
+      for (const key of Object.keys(localStorage)) {
+        const len = (localStorage.getItem(key) || '').length * 2;
+        usedBytes += len;
+        if (key === 'dems_sqlite_db') dbBytes = len;
+      }
+      const usedMB  = usedBytes / (1024 * 1024);
+      const dbMB    = dbBytes / (1024 * 1024);
+      const limitMB = 5;
+      const pct = Math.min(100, (usedMB / limitMB) * 100);
+
+      const dbSizeEl    = document.getElementById('storDbSize');
+      const totalUsedEl = document.getElementById('storTotalUsed');
+      const pctEl       = document.getElementById('storPct');
+      const fill        = document.getElementById('storBarFill');
+      const limit       = document.getElementById('storLimit');
+      const pill        = document.getElementById('storStatusPill');
+      const pillText    = document.getElementById('storStatusText');
+      const lastUpdated = document.getElementById('storLastUpdated');
+
+      if (dbSizeEl)    dbSizeEl.textContent    = dbMB.toFixed(2) + ' MB';
+      if (totalUsedEl) totalUsedEl.textContent = usedMB.toFixed(2) + ' MB';
+      if (pctEl)       pctEl.textContent       = pct.toFixed(1) + '%';
+      if (fill)        fill.style.width        = pct.toFixed(1) + '%';
+      if (limit)        limit.textContent      = '~' + limitMB.toFixed(2) + ' MB';
+
+      const level = pct < 50 ? 'healthy' : pct < 80 ? 'warning' : 'critical';
+      if (fill) fill.className = 'storage-bar-fill stor-fill-' + level;
+      if (pill) pill.className = 'storage-status-pill stor-pill-' + level;
+      const msgs = { healthy: 'Storage healthy', warning: 'Storage filling up — backup recommended', critical: 'Storage critical — backup NOW' };
+      if (pillText) pillText.textContent = msgs[level];
+      if (lastUpdated) lastUpdated.textContent = 'Last measured: ' + new Date().toLocaleTimeString();
+    } catch(e) { console.error('[StorageMonitor]', e); }
+  }
+};
+
+// ── INIT ──────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', async () => {
+  // Security guard access
+  if (!Auth.requireAuth()) return;
+
+  try {
+    await DB.init();
+    await populateForms();
+  } catch(e) {
+    Toast.show('System error: database failed to initialize. ' + e.message, 'error');
+    console.error('[Settings] Init failure:', e);
+  }
+
+  setupSession();
+  setupMobileNav();
+  setupLogout();
+  if (typeof StorageMonitor !== 'undefined') StorageMonitor.update();
+});
+
+// ── POPULATE FORM DETAILS ─────────────────────────────────
+async function populateForms() {
+  _profile = await Profile.get();
+  if (!_profile) return;
+
+  // Sidebar profile
+  document.getElementById('sbLogo').textContent = _profile.logoEmoji || '⬡';
+  document.getElementById('sbBizName').textContent = _profile.businessName || 'ExchangeTable';
+
+  // Form Fields
+  document.getElementById('fBusinessName').value = _profile.businessName || '';
+  document.getElementById('fLogoEmoji').value = _profile.logoEmoji || '⬡';
+  document.getElementById('fCity').value = _profile.city || '';
+  document.getElementById('fArea').value = _profile.area || '';
+  document.getElementById('fAddress').value = _profile.address || '';
+  document.getElementById('fPhone').value = _profile.phone || '';
+  document.getElementById('fWhatsapp').value = _profile.whatsapp || '';
+  document.getElementById('fSecpNumber').value = _profile.secpNumber || '';
+  document.getElementById('fNtnNumber').value = _profile.ntnNumber || '';
+  document.getElementById('fSessionTimeout').value = _profile.sessionTimeout || 15;
+  document.getElementById('fReceiptFooter').value = _profile.receiptFooter || '';
+
+  // AML / Compliance — default to ₨1,000,000 when not yet configured so
+  // existing installs (pre-dating this setting) get the documented default
+  // rather than an empty/zero threshold.
+  document.getElementById('fAmlCnicThreshold').value =
+    (_profile.amlCnicThresholdPkr === undefined || _profile.amlCnicThresholdPkr === null || _profile.amlCnicThresholdPkr === '')
+      ? 1000000
+      : _profile.amlCnicThresholdPkr;
+}
+
+// ── SAVE BUSINESS PROFILE DETAILS ─────────────────────────
+async function saveBusinessProfile() {
+  const name = document.getElementById('fBusinessName').value.trim();
+  const phone = document.getElementById('fPhone').value.trim();
+  const whatsapp = document.getElementById('fWhatsapp').value.trim();
+  const city = document.getElementById('fCity').value.trim();
+  const area = document.getElementById('fArea').value.trim();
+  const address = document.getElementById('fAddress').value.trim();
+  const SECP = document.getElementById('fSecpNumber').value.trim();
+  const NTN = document.getElementById('fNtnNumber').value.trim();
+  const timerSetting = parseInt(document.getElementById('fSessionTimeout').value) || 15;
+  const footerSetting = document.getElementById('fReceiptFooter').value.trim();
+
+  if (!name || !whatsapp || !city || !area || !address || !SECP) {
+    Toast.show('All mandatory fields marked with an asterisk are required.', 'error');
+    return;
+  }
+
+  // Safe UX addition: WhatsApp number format check (digits, optional leading +,
+  // 10-15 digits per E.164-style numbers). Does not alter the saved value.
+  if (!/^\+?\d{10,15}$/.test(whatsapp.replace(/[\s-]/g, ''))) {
+    Toast.show('WhatsApp number format looks invalid. Use digits only, e.g. +923001234567.', 'error');
+    return;
+  }
+
+  // Safe UX addition: enforce the session timeout range already declared on
+  // the input (min="2" max="60") at the JS layer too.
+  if (timerSetting < 2 || timerSetting > 60) {
+    Toast.show('Session timeout must be between 2 and 60 minutes.', 'error');
+    return;
+  }
+
+  const payload = {
+    ...(_profile || {}),
+    businessName: name,
+    logoEmoji: document.getElementById('fLogoEmoji').value,
+    city: city,
+    area: area,
+    address: address,
+    phone: phone,
+    whatsapp: whatsapp,
+    secpNumber: SECP,
+    ntnNumber: NTN,
+    sessionTimeout: timerSetting,
+    receiptFooter: footerSetting
+  };
+
+  try {
+    await Profile.save(payload);
+    _profile = payload;
+
+    // update sidebar live
+    document.getElementById('sbLogo').textContent = payload.logoEmoji;
+    document.getElementById('sbBizName').textContent = payload.businessName;
+
+    await AuditLog.add('PROFILE_UPDATED', `Business Name: ${name} | SECP: ${SECP}`);
+    Toast.show('🏢 Profile and SECP config updated successfully!', 'success');
+  } catch(e) {
+    Toast.show('Error saving profile changes: ' + e.message, 'error');
+  }
+}
+
+// ── SAVE COMPLIANCE (AML) SETTINGS ────────────────────────
+async function saveComplianceSettings() {
+  const raw = document.getElementById('fAmlCnicThreshold').value;
+  const threshold = parseFloat(raw);
+
+  if (raw === '' || isNaN(threshold) || threshold < 0) {
+    Toast.show('AML CNIC threshold must be a positive PKR amount.', 'error');
+    return;
+  }
+
+  if (threshold === 0) {
+    Toast.show('AML threshold cannot be zero — this would disable CNIC enforcement entirely.', 'error');
+    return;
+  }
+  if (threshold > 100000000) {
+    Toast.show('AML threshold exceeds the permitted maximum (₨100,000,000).', 'error');
+    return;
+  }
+
+  // Merge into the existing profile payload — amlCnicThresholdPkr rides
+  // alongside the other non-identity settings (sessionTimeout, receiptFooter)
+  // that already live on the Profile object, so older profiles without this
+  // field are unaffected until explicitly saved here.
+  const payload = {
+    ...(_profile || {}),
+    amlCnicThresholdPkr: threshold
+  };
+
+  try {
+    await Profile.save(payload);
+    _profile = payload;
+
+    await AuditLog.add('COMPLIANCE_SETTINGS_UPDATED', `AML CNIC threshold set to: ₨ ${threshold.toLocaleString()}`);
+    Toast.show('🛡️ Compliance settings updated successfully!', 'success');
+  } catch(e) {
+    Toast.show('Error saving compliance settings: ' + e.message, 'error');
+  }
+}
+
+// ── CHANGE CREDENTIAL PIN ─────────────────────────────────
+async function saveAccessPin() {
+  const btn = document.getElementById('savePinBtn');
+  if (btn && btn.disabled) return; // prevent double-click submission
+
+  const curr = document.getElementById('fCurrentPin').value;
+  const pin1 = document.getElementById('fNewPin').value;
+  const pin2 = document.getElementById('fConfirmPin').value;
+
+  if (!curr || curr.length !== 4 || !/^\d{4}$/.test(curr)) {
+    Toast.show('Current PIN must be exactly 4 digits.', 'error');
+    return;
+  }
+  if (pin1.length !== 4 || !/^\d{4}$/.test(pin1)) {
+    Toast.show('New PIN code must be exactly 4 digits.', 'error');
+    return;
+  }
+  if (pin1 !== pin2) {
+    Toast.show('Confirm PIN does not match.', 'error');
+    return;
+  }
+
+  const originalLabel = btn ? btn.innerHTML : '';
+  if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Saving…'; }
+
+  try {
+    // Invoke Auth changePin
+    const success = await Auth.changePin(curr, pin1);
+    
+    if (success) {
+      document.getElementById('fCurrentPin').value = '';
+      document.getElementById('fNewPin').value = '';
+      document.getElementById('fConfirmPin').value = '';
+
+      Toast.show('🔑 PIN code changed successfully!', 'success');
+    } else {
+      Toast.show('Incorrect current PIN credential. Access rejected.', 'error');
+    }
+  } catch(e) {
+    Toast.show('System PIN transition error: ' + e.message, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = originalLabel; }
+  }
+}
+
+// ── DATABASE OFFLINE BACKUP ──────────────────────────────
+function formatBackupTimestamp() {
+  const d = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}_${pad(d.getHours())}-${pad(d.getMinutes())}-${pad(d.getSeconds())}`;
+}
+
+async function exportDataFile() {
+  try {
+    // Export RAW uint8Array of sql DB
+    const bytes = DB.exportRaw();
+    if (!bytes) {
+      Toast.show('Database not initialized correctly or empty.', 'error');
+      return;
+    }
+
+    const blob = new Blob([bytes], {type: 'application/octet-stream'});
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `DEMS-Backup-${formatBackupTimestamp()}.db`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+
+    AuditLog.add('DATABASE_EXPORTED', `Sqlite database offline backup exported raw.`);
+    Toast.show('📥 Offline SQLite backup file downloaded successfully!', 'success');
+  } catch(e) {
+    Toast.show('Database export crash: ' + e.message, 'error');
+  }
+}
+
+// SEC-FIX 7: Raw .db import removed entirely — restoring from an
+// unauthenticated, unencrypted SQLite file let anyone who could get a
+// user to click "Upload" silently overwrite the whole ledger with
+// arbitrary content. Restores now go exclusively through backup.html's
+// encrypted flow. DB.importRaw() is still used internally by that page.
+
+// ── RESET APP CONFIGURATION & LOGIN (scoped — NOT a data wipe) ──
+// CRITICAL: this function must NEVER remove the 'dems_sqlite_db' key or
+// otherwise touch transactions / receipts / verification_log / audit_log.
+// Those tables are permanent by design (noDeleteAllowed / transactionImmutable
+// in app-config.json). Only app_settings (via DB.resetAppConfigOnly()) and
+// the credential/session localStorage keys below are in scope.
+async function triggerFactoryReset() {
+  const promptValue = prompt('⚙️ RESET APP CONFIGURATION & LOGIN\n\nThis clears your business profile, PIN/password, and app settings, then returns you to onboarding.\n\nYour transaction ledger, receipts, verification log, and audit log are NEVER deleted by this action — they are permanent by design and are not affected.\n\nTo continue, type exactly: RESET CONFIG');
+  if (promptValue !== 'RESET CONFIG') {
+    Toast.show('Reset canceled. Confirmation phrase did not match.', 'info');
+    return;
+  }
+
+  let resetSummary = null;
+  try {
+    // Scoped DB-level reset — only ever clears app_settings.
+    resetSummary = await DB.resetAppConfigOnly();
+  } catch (e) {
+    Toast.show('Could not reset app settings: ' + e.message, 'error');
+    return;
+  }
+
+  // High-severity audit entry — written BEFORE credentials are removed so that
+  // actor identity (from dems_session) is still available to AuditLog.add().
+  try {
+    await AuditLog.add(
+      'APP_CONFIG_RESET',
+      `SEVERITY: HIGH | Cleared app_settings (${resetSummary?.clearedRows ?? '?'} rows) + credential/session keys | ` +
+      `Protected tables untouched — transactions: ${resetSummary?.survivingCounts?.transactions ?? '?'}, ` +
+      `receipts: ${resetSummary?.survivingCounts?.receipts ?? '?'}, ` +
+      `verification_log: ${resetSummary?.survivingCounts?.verification_log ?? '?'}, ` +
+      `audit_log: ${resetSummary?.survivingCounts?.audit_log ?? '?'}`
+    );
+  } catch (e) {
+    // Even if logging fails, do not block the reset — but warn loudly.
+    console.error('[Settings] Failed to write audit log for APP_CONFIG_RESET:', e);
+  }
+
+  // Reset DB-backed lockout state (SEC-FIX 2).
+  // login_lockout lives in SQLite, not localStorage, so it must be cleared
+  // explicitly — otherwise a partial failed-attempt counter from before the
+  // reset would persist and eat into the attempts available on the new PIN.
+  try {
+    await Auth.clearLockout();
+  } catch (e) {
+    console.warn('[Settings] clearLockout during factory reset failed:', e.message);
+  }
+
+  // Credential / session localStorage keys ONLY — never 'dems_sqlite_db'.
+  localStorage.removeItem('dems_business_profile');
+  localStorage.removeItem('dems_session');
+  localStorage.removeItem('dems_credentials');
+  // Legacy lockout keys (pre-SEC-FIX-2) — cleared as belt-and-suspenders
+  // even though auth.js no longer writes them.
+  localStorage.removeItem('failedAttempts');
+  localStorage.removeItem('lockoutUntil');
+
+  alert('⚙️ App configuration and login have been reset. Your transaction ledger, receipts, verification log, and audit log were not touched. Redirecting to onboarding setup.');
+  window.location.href = 'index.html';
+}
+
+// ── CORE UTILS ───────────────────────────────────────────
+function setTxt(id, v) { const e = document.getElementById(id); if (e) e.textContent = v; }
+
+function setupSession() {
+  function tick() {
+    try {
+      const raw = localStorage.getItem('dems_session');
+      if (!raw) { Auth.logout(); return; }
+      const s = JSON.parse(raw);
+      if (Date.now() >= s.expiresAt) { Auth.logout(); return; }
+      const left = Math.max(0, Math.floor((s.expiresAt - Date.now()) / 1000));
+      const m = Math.floor(left / 60), sec = left % 60;
+      setTxt('sessionTimer', m + ':' + String(sec).padStart(2, '0'));
+    } catch(e) {}
+  }
+  tick(); setInterval(tick, 1000);
+}
+
+function setupLogout() {
+  const btn = document.getElementById('logoutBtn');
+  if (btn) btn.addEventListener('click', () => { Auth.logout(); });
+}
+
+function setupMobileNav() {
+  const btn = document.getElementById('mobileMenuBtn');
+  const sb  = document.getElementById('sidebar');
+  const ov  = document.getElementById('mobileOverlay');
+  if (!btn || !sb || !ov) return;
+  btn.addEventListener('click', () => { sb.classList.toggle('open'); ov.classList.toggle('show'); });
+  ov.addEventListener('click', () => { sb.classList.remove('open'); ov.classList.remove('show'); });
+}
+
+const Toast = {
+  show(msg, type='info', dur=3500) {
+    const c = document.getElementById('toastContainer');
+    const t = document.createElement('div');
+    const icons = { success:'✅', error:'❌', info:'ℹ️', warning:'⚠️' };
+    t.className = `toast ${type}`;
+    const iconEl = document.createElement('span');
+    iconEl.textContent = icons[type] || 'ℹ️';
+    const msgEl = document.createElement('span');
+    msgEl.textContent = msg;
+    t.appendChild(iconEl);
+    t.appendChild(msgEl);
+    c.appendChild(t);
+    setTimeout(() => { t.style.opacity='0'; t.style.transition='opacity 0.3s'; setTimeout(()=>t.remove(),300); }, dur);
+  }
+};
+</script>
+</body>
+</html>

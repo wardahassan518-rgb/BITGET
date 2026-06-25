@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy"
+  content="default-src 'self';
+           script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com;
+           style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com;
+           font-src https://fonts.gstatic.com;
+           connect-src 'self' https://worldtimeapi.org;
+           img-src 'self' data: blob:;
+           object-src 'none';
+           base-uri 'self';">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Security Audit Trail — DEMS</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<style>
+/* ── LAYOUT ─────────────────────────────────────────────── */
+.app-shell { display: flex; min-height: 100vh; }
+
+.sidebar {
+  width: 220px; flex-shrink: 0;
+  background: var(--navy-2);
+  border-right: 1px solid var(--border);
+  padding: 24px 12px;
+  position: fixed; top: 0; left: 0; height: 100vh;
+  overflow-y: auto; z-index: 100;
+  display: flex; flex-direction: column;
+  transition: left 0.25s;
+}
+.sidebar-brand {
+  display: flex; align-items: center; gap: 10px;
+  padding: 0 8px 20px; border-bottom: 1px solid var(--border); margin-bottom: 20px;
+}
+.sb-logo { font-size: 22px; color: var(--blue); }
+.sb-name { font-family: var(--font-display); font-size: 15px; font-weight: 700; color: var(--white); line-height: 1.1; }
+.sb-name small { display: block; color: var(--muted); font-size: 10px; font-weight: 400; }
+.nav-group-label {
+  font-size: 10px; font-weight: 600; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.1em;
+  padding: 0 8px; margin: 16px 0 6px;
+}
+.nav-item {
+  display: flex; align-items: center; gap: 9px;
+  padding: 9px 10px; border-radius: var(--radius-sm);
+  font-size: 13px; font-weight: 500; color: var(--muted);
+  text-decoration: none; transition: all 0.15s; margin-bottom: 2px;
+  background: none; border: none; cursor: pointer; width: 100%; text-align: left;
+}
+.nav-item:hover { background: var(--blue-glow); color: var(--white); text-decoration: none; }
+.nav-item.active { background: var(--blue-glow); color: var(--blue); border: 1px solid rgba(14,165,233,0.2); }
+.nav-icon { font-size: 15px; width: 18px; text-align: center; flex-shrink: 0; }
+.sidebar-footer { margin-top: auto; padding-top: 16px; border-top: 1px solid var(--border); }
+.session-pill { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); padding: 6px 10px; margin-bottom: 4px; }
+.session-pill span { color: var(--gold); font-family: var(--font-mono); }
+
+.main-area { margin-left: 220px; flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+
+/* ── PAGE TOPBAR ────────────────────────────────────────── */
+.page-topbar {
+  position: sticky; top: 0; z-index: 50;
+  background: rgba(8,15,28,0.92); backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--border);
+  padding: 0 32px; height: 60px;
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+}
+.ptb-left { display: flex; align-items: center; gap: 14px; }
+.ptb-title { font-family: var(--font-display); font-size: 17px; font-weight: 700; color: var(--white); }
+.ptb-sub { font-size: 12px; color: var(--muted); }
+.mobile-menu-btn { display: none; background: none; border: none; color: var(--white); font-size: 20px; cursor: pointer; padding: 4px 8px; }
+
+/* ── AUDIT LOG LAYOUT ───────────────────────────────────── */
+.page-body { padding: 32px; max-width: 1300px; width: 100%; margin: 0 auto; }
+
+/* Filter Ribbon bar */
+.filter-card {
+  background: var(--navy-2); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 20px 24px; margin-bottom: 24px;
+}
+.filter-grid { display: grid; grid-template-columns: 2fr 1.2fr auto; gap: 16px; align-items: flex-end; }
+.filter-group { display: flex; flex-direction: column; gap: 6px; }
+.filter-label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+
+/* Audits log list */
+.audit-card {
+  background: var(--navy-2); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); overflow: hidden;
+}
+.table-responsive { overflow-x: auto; width: 100%; }
+.audit-table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; }
+.audit-table th {
+  background: rgba(14,26,46,0.5); border-bottom: 1px solid var(--border);
+  color: var(--muted); font-weight: 600; text-transform: uppercase;
+  font-size: 10px; letter-spacing: 0.06em; padding: 14px 18px;
+}
+.audit-table td { padding: 12px 18px; border-bottom: 1px solid var(--border-soft); color: var(--white); vertical-align: middle; }
+.audit-table tr:hover td { background: rgba(14,165,233,0.01); }
+
+/* colorful audit badges */
+.badge-action {
+  font-family: var(--font-display); font-size: 10.5px; font-weight: 700;
+  padding: 3px 10px; border-radius: var(--radius-pill); display: inline-block;
+  text-transform: uppercase; letter-spacing: 0.02em;
+}
+.badge-action.success   { background: rgba(16,185,129,0.1); color: var(--green); }
+.badge-action.critical  { background: rgba(239, 68, 68, 0.1); color: var(--red); }
+.badge-action.warning   { background: rgba(245,158,11,0.08); color: var(--gold); }
+.badge-action.system    { background: rgba(14,165,233,0.1); color: var(--blue); }
+
+.detail-txt { max-width: 450px; word-break: break-all; opacity: 1; font-weight: 500; }
+.meta-ua { font-size: 11.2px; color: var(--muted); max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Pagination and empty */
+.empty-state { text-align: center; padding: 80px 24px; color: var(--muted); }
+.empty-icon { font-size: 40px; margin-bottom: 12px; opacity: 0.6; }
+.audit-footer {
+  padding: 14px 24px; border-top: 1px solid var(--border-soft);
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 12px; color: var(--muted); background: rgba(14,26,46,0.3);
+}
+
+/* ── MOBILE OVERLAY ─────────────────────────────────────── */
+.mobile-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 99; }
+.mobile-overlay.show { display: block; }
+
+@media (max-width: 768px) {
+  .sidebar { left: -240px; }
+  .sidebar.open { left: 0; }
+  .main-area { margin-left: 0; }
+  .mobile-menu-btn { display: block; }
+  .filter-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<div class="mobile-overlay" id="mobileOverlay"></div>
+
+<!-- toast -->
+<div id="toastContainer" aria-live="polite" aria-atomic="true" style="position: fixed; top: 76px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 8px;"></div>
+
+<!-- ── APP SHELL ──────────────────────────────────────────── -->
+<div class="app-shell">
+
+  <!-- SIDEBAR -->
+  <nav role="navigation" class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <div class="sb-logo" id="sbLogo">⬡</div>
+      <div class="sb-name">
+        <span id="sbBizName">Exchange</span>
+        <small>Management System</small>
+      </div>
+    </div>
+
+    <div class="nav-group-label">Main</div>
+    <a href="dashboard.html" class="nav-item"><span class="nav-icon">📊</span> Dashboard</a>
+    <a href="new-transaction.html" class="nav-item"><span class="nav-icon">➕</span> New Transaction</a>
+    <a href="transactions.html" class="nav-item"><span class="nav-icon">📋</span> All Transactions</a>
+    <a href="clients.html" class="nav-item"><span class="nav-icon">👥</span> Clients KYC</a>
+
+    <div class="nav-group-label">System</div>
+    <a href="chain-integrity.html" class="nav-item"><span class="nav-icon">🔐</span> Chain Integrity</a>
+    <a href="reports.html" class="nav-item"><span class="nav-icon">📑</span> Reports</a>
+    <a href="settings.html" class="nav-item"><span class="nav-icon">⚙️</span> Settings</a>
+    <a href="audit-log-view.html" class="nav-item active" aria-current="page"><span class="nav-icon">📁</span> Audit Logs</a>
+
+    <div class="sidebar-footer">
+      <div class="session-pill">⏱ Session: <span id="sessionTimer">—</span></div>
+      <button class="nav-item" id="logoutBtn"><span class="nav-icon">🚪</span> Logout</button>
+    </div>
+  </nav>
+
+  <!-- MAIN AREA -->
+  <div class="main-area">
+
+    <!-- TOPBAR -->
+    <div class="page-topbar">
+      <div class="ptb-left">
+        <button class="mobile-menu-btn" id="mobileMenuBtn">☰</button>
+        <div>
+          <div class="ptb-title">📁 Compliance Audit Logs</div>
+          <div class="ptb-sub" id="ptbSub">Read-only real-time tracking trail of administrative actions</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BODY -->
+    <div class="page-body">
+
+      <!-- filter bar card -->
+      <div class="filter-card">
+        <div class="filter-grid">
+          
+          <div class="filter-group">
+            <label class="filter-label">Search logs</label>
+            <input type="text" class="form-input" id="fSearch" placeholder="Type logs description, details or receipts…" oninput="filterAudits()">
+          </div>
+
+          <div class="filter-group">
+            <label class="filter-label">Audit Category</label>
+            <select class="form-input" id="fCategory" onchange="filterAudits()">
+              <option value="all">— Show All Actions —</option>
+              <option value="success">✅ Successful Actions (Logins, Inserts)</option>
+              <option value="warning">⚠️ Security Cautions (Integrity scans, Edits)</option>
+              <option value="critical">🚨 Threats & Fails (Mismatch, Lockout, Fail)</option>
+              <option value="system">⚙️ System Core Operations</option>
+            </select>
+          </div>
+
+          <div>
+            <button class="btn-primary" onclick="exportAuditAsCsv()">📥 Download CSV Log</button>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Logs ledger container table -->
+      <div class="audit-card">
+        <div class="table-responsive">
+          <table class="audit-table">
+            <thead>
+              <tr>
+                <th>Timestamp</th>
+                <th>Safety Category</th>
+                <th>Operation Action</th>
+                <th>Detail Trail Contents</th>
+                <th>Device/Platform Context</th>
+                <th>Internal ID</th>
+              </tr>
+            </thead>
+            <tbody id="auditTableBody">
+              <!-- rows filled dynamic -->
+            </tbody>
+          </table>
+        </div>
+
+        <div id="emptyAuditState" class="empty-state" style="display:none;">
+          <div class="empty-icon">📁</div>
+          <div style="font-size:15px; font-weight:700; color:#fff;">No Audit Logs Found</div>
+          <div style="font-size:12px; margin-top:4px;">No security actions match your filter coordinates.</div>
+        </div>
+
+        <!-- summary footer -->
+        <div class="audit-footer">
+          <div id="footerSummary">Showing 0 of 0 events</div>
+          <div style="font-family:var(--font-mono); font-size:10px;">COMPLIANCE SECURE TRACE DEPLOYED: FORCE LOCKING SYSTEM ACTIVE</div>
+        </div>
+      </div>
+
+    </div><!-- /body -->
+  </div><!-- /main area -->
+</div><!-- /app shell -->
+
+<script src="db.js"></script>
+<script src="auth.js"></script>
+<script src="profile.js"></script>
+<script src="audit-log.js"></script>
+<script>
+'use strict';
+
+// ── STATE ─────────────────────────────────────────────────
+let _audits = [];
+
+// ── INIT ──────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', async () => {
+  // Check requireAuth security
+  if (!Auth.requireAuth()) return;
+
+  await DB.init();
+  await loadProfile();
+  await loadAuditLogs();
+
+  setupSession();
+  setupMobileNav();
+  setupLogout();
+});
+
+// ── SIDEBAR PROFILE ───────────────────────────────────────
+async function loadProfile() {
+  try {
+    const p = await Profile.get();
+    if (p) {
+      document.getElementById('sbLogo').textContent = p.logoEmoji || '⬡';
+      document.getElementById('sbBizName').textContent = p.businessName || 'ExchangeTable';
+    }
+  } catch(e) {}
+}
+
+async function loadAuditLogs() {
+  try {
+    // Read final 500 audit logs from SQLite to keep things perfectly synchronous
+    _audits = await DB.all('SELECT * FROM audit_log ORDER BY id DESC LIMIT 500');
+
+    // Fallback to localStorage list if SQL empty or not synchronized
+    if (_audits.length === 0) {
+      const storageLogs = AuditLog.getAll();
+      // Write missing storage logs to sqlite as fallback
+      _audits = storageLogs.map(l => ({
+        id: l.id,
+        action: l.action,
+        detail: l.detail,
+        timestamp: l.timestamp,
+        platform: l.platform,
+        user_agent: l.ua
+      }));
+    }
+
+    filterAudits();
+  } catch(e) {
+    Toast.show('Error accessing audit logs: ' + e.message, 'error');
+  }
+}
+
+// ── GET COLOR CATEGORIZATION OF AUDIT OPERATIONS ───────────
+function getActionClass(act) {
+  const cats = {
+    // success
+    LOGIN_SUCCESS: 'success',
+    TRANSACTION_ADDED: 'success',
+    PROFILE_UPDATED: 'success',
+    DATABASE_STORED_BACKUP: 'success',
+    CLIENT_KYC_VERIFIED: 'success',
+
+    // critical
+    LOGIN_FAILED: 'critical',
+    LOCKOUT: 'critical',
+    TRANSACTION_ERROR: 'critical',
+    CHAIN_TAMPERED: 'critical',
+    PROFILE_CLEARED: 'critical',
+
+    // warning
+    CHAIN_VERIFICATION_MISMATCH: 'warning',
+    VERIFICATION_FAILED: 'warning',
+    ATTACHMENT_RESIZED: 'warning',
+
+    // system
+    DATABASE_EXPORTED: 'system',
+    NODE_HEALTH_CHECK: 'system',
+    LOGOUT: 'system',
+    SESSION_EXPIRED: 'system'
+  };
+
+  return cats[act] || 'system';
+}
+
+function getCategoryGroup(act) {
+  const cls = getActionClass(act);
+  return cls; // success, critical, warning, system
+}
+
+// ── FILTER AUDIT CARDS ───────────────────────────────────
+function filterAudits() {
+  const search = document.getElementById('fSearch').value.toLowerCase().trim();
+  const catFilter = document.getElementById('fCategory').value;
+
+  const tbody = document.getElementById('auditTableBody');
+  const empty = document.getElementById('emptyAuditState');
+
+  const filtered = _audits.filter(l => {
+    // Search match
+    if (search) {
+      const matchText = `${l.action} ${l.detail} ${l.timestamp}`.toLowerCase();
+      if (!matchText.includes(search)) return false;
+    }
+
+    // Category match
+    if (catFilter !== 'all') {
+      const cls = getCategoryGroup(l.action);
+      if (cls !== catFilter) return false;
+    }
+
+    return true;
+  });
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = '';
+    empty.style.display = 'block';
+    document.getElementById('footerSummary').textContent = `Showing 0 of ${_audits.length} events`;
+    return;
+  }
+
+  empty.style.display = 'none';
+  tbody.innerHTML = filtered.map(l => {
+    const actClass = getActionClass(l.action);
+    const dateFormatted = new Date(l.timestamp).toLocaleString();
+
+    return `
+      <tr>
+        <td class="mono" style="font-size:11px; color:var(--muted);">${dateFormatted}</td>
+        <td><span class="badge-action ${actClass}">${actClass.toUpperCase()}</span></td>
+        <td class="mono" style="font-weight:700; color:#fff;">${esc(l.action)}</td>
+        <td><div class="detail-txt">${esc(l.detail || '—')}</div></td>
+        <td>
+          <div class="mono" style="font-size:11.5px; color:var(--white);">${esc(l.platform)}</div>
+          <div class="meta-ua" title="${esc(l.user_agent)}">${esc(l.user_agent)}</div>
+        </td>
+        <td class="mono" style="font-size:10.5px; color:var(--muted);">${esc(l.id || '—')}</td>
+      </tr>
+    `;
+  }).join('');
+
+  document.getElementById('footerSummary').textContent = `Showing ${filtered.length} of ${_audits.length} events`;
+}
+
+// ── EXPORT TRAIL ─────────────────────────────────────────
+function exportAuditAsCsv() {
+  try {
+    const csvContent = AuditLog.exportCSV();
+    const blob = new Blob([csvContent], {type: 'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Security-Audit-Logs-${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    Toast.show('📥 Security Audit Logs CSV export finished!', 'success');
+  } catch(e) {
+    Toast.show('Error exporting audits: ' + e.message, 'error');
+  }
+}
+
+// ── UTILITIES ─────────────────────────────────────────────
+function setTxt(id, v) { const e = document.getElementById(id); if (e) e.textContent = v; }
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#x27;'); }
+
+function setupSession() {
+  function tick() {
+    try {
+      const raw = localStorage.getItem('dems_session');
+      if (!raw) return;
+      const s = JSON.parse(raw);
+      const left = Math.max(0, Math.floor((s.expiresAt - Date.now()) / 1000));
+      const m = Math.floor(left / 60), sec = left % 60;
+      setTxt('sessionTimer', m + ':' + String(sec).padStart(2 ,'0'));
+    } catch(e) {}
+  }
+  tick(); setInterval(tick, 1000);
+}
+
+function setupLogout() {
+  document.getElementById('logoutBtn').addEventListener('click', () => { Auth.logout(); });
+}
+
+function setupMobileNav() {
+  const btn = document.getElementById('mobileMenuBtn');
+  const sb  = document.getElementById('sidebar');
+  const ov  = document.getElementById('mobileOverlay');
+  if (!btn) return;
+  btn.addEventListener('click', () => { sb.classList.toggle('open'); ov.classList.toggle('show'); });
+  ov.addEventListener('click', () => { sb.classList.remove('open'); ov.classList.remove('show'); });
+}
+
+const Toast = {
+  show(msg, type='info', dur=3500) {
+    const c = document.getElementById('toastContainer');
+    const t = document.createElement('div');
+    const icons = { success:'✅', error:'❌', info:'ℹ️', warning:'⚠️' };
+    t.className = `toast ${type}`;
+    t.innerHTML = `<span>${icons[type]||'ℹ️'}</span><span>${msg}</span>`;
+    c.appendChild(t);
+    setTimeout(() => { t.style.opacity='0'; t.style.transition='opacity 0.3s'; setTimeout(()=>t.remove(),300); }, dur);
+  }
+};
+</script>
+</body>
+</html>

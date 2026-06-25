@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy"
+  content="default-src 'self';
+           script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com;
+           style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com;
+           font-src https://fonts.gstatic.com;
+           connect-src 'self' https://worldtimeapi.org;
+           img-src 'self' data: blob:;
+           object-src 'none';
+           base-uri 'self';">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>All Transactions Ledger — DEMS</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<style>
+/* ── LAYOUT ─────────────────────────────────────────────── */
+.app-shell { display: flex; min-height: 100vh; }
+
+.sidebar {
+  width: 220px; flex-shrink: 0;
+  background: var(--navy-2);
+  border-right: 1px solid var(--border);
+  padding: 24px 12px;
+  position: fixed; top: 0; left: 0; height: 100vh;
+  overflow-y: auto; z-index: 100;
+  display: flex; flex-direction: column;
+  transition: left 0.25s;
+}
+.sidebar-brand {
+  display: flex; align-items: center; gap: 10px;
+  padding: 0 8px 20px; border-bottom: 1px solid var(--border); margin-bottom: 20px;
+}
+.sb-logo { font-size: 22px; color: var(--blue); }
+.sb-name { font-family: var(--font-display); font-size: 15px; font-weight: 700; color: var(--white); line-height: 1.1; }
+.sb-name small { display: block; color: var(--muted); font-size: 10px; font-weight: 400; }
+.nav-group-label {
+  font-size: 10px; font-weight: 600; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.1em;
+  padding: 0 8px; margin: 16px 0 6px;
+}
+.nav-item {
+  display: flex; align-items: center; gap: 9px;
+  padding: 9px 10px; border-radius: var(--radius-sm);
+  font-size: 13px; font-weight: 500; color: var(--muted);
+  text-decoration: none; transition: all 0.15s; margin-bottom: 2px;
+  background: none; border: none; cursor: pointer; width: 100%; text-align: left;
+}
+.nav-item:hover { background: var(--blue-glow); color: var(--white); text-decoration: none; }
+.nav-item.active { background: var(--blue-glow); color: var(--blue); border: 1px solid rgba(14,165,233,0.2); }
+.nav-icon { font-size: 15px; width: 18px; text-align: center; flex-shrink: 0; }
+.sidebar-footer { margin-top: auto; padding-top: 16px; border-top: 1px solid var(--border); }
+.session-pill { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); padding: 6px 10px; margin-bottom: 4px; }
+.session-pill span { color: var(--gold); font-family: var(--font-mono); }
+
+.main-area { margin-left: 220px; flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+
+/* ── PAGE TOPBAR ────────────────────────────────────────── */
+.page-topbar {
+  position: sticky; top: 0; z-index: 50;
+  background: rgba(8,15,28,0.92); backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--border);
+  padding: 0 32px; height: 60px;
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+}
+.ptb-left { display: flex; align-items: center; gap: 14px; }
+.ptb-title { font-family: var(--font-display); font-size: 17px; font-weight: 700; color: var(--white); }
+.ptb-sub { font-size: 12px; color: var(--muted); }
+.mobile-menu-btn { display: none; background: none; border: none; color: var(--white); font-size: 20px; cursor: pointer; padding: 4px 8px; }
+
+/* ── LEDGER LAYOUT ──────────────────────────────────────── */
+.page-body { padding: 32px; max-width: 1400px; width: 100%; margin: 0 auto; }
+
+/* Stats ribbon */
+.stats-ribbon { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+.stat-mini-card {
+  background: var(--navy-2); border: 1px solid var(--border);
+  border-radius: var(--radius-md); padding: 16px 20px;
+}
+.smc-lbl { font-size: 10.5px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.smc-val { font-family: var(--font-display); font-size: 18px; font-weight: 700; color: #fff; margin-top: 4px; }
+.smc-val.green { color: var(--green); }
+.smc-val.gold { color: var(--gold); }
+
+/* Unified Filters Box */
+.filter-card {
+  background: var(--navy-2); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 20px 24px; margin-bottom: 24px;
+}
+.filter-grid { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 16px; align-items: flex-end; }
+.filter-group { display: flex; flex-direction: column; gap: 6px; }
+.filter-label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+
+/* Scrollable Table Ledger */
+.ledger-card {
+  background: var(--navy-2); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); overflow: hidden;
+}
+.table-responsive { overflow-x: auto; width: 100%; }
+.ledger-table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; }
+.ledger-table th {
+  background: rgba(14,26,46,0.5); border-bottom: 1px solid var(--border);
+  color: var(--muted); font-weight: 600; text-transform: uppercase;
+  font-size: 10px; letter-spacing: 0.06em; padding: 14px 18px;
+}
+.ledger-table td { padding: 14px 18px; border-bottom: 1px solid var(--border-soft); color: var(--white); vertical-align: middle; }
+.ledger-table tr:hover td { background: rgba(14,165,233,0.02); }
+
+.badge-type { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: var(--radius-pill); font-size: 10px; font-weight: 700; text-transform: uppercase; }
+.badge-type.buy  { background: rgba(16,185,129,0.1); color: var(--green); }
+.badge-type.sell { background: rgba(245,158,11,0.08); color: var(--gold); }
+
+.badge-chain { font-family: var(--font-mono); font-size: 10px; background: var(--navy-3); color: var(--blue); padding: 3px 8px; border-radius: var(--radius-sm); border: 1px solid rgba(14,165,233,0.15); }
+
+/* ── VOID / CORRECTION BADGES ──────────────────────────── */
+.badge-voided {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 8px; border-radius: var(--radius-pill);
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+  background: rgba(239,68,68,0.10); color: #fca5a5;
+  border: 1px solid rgba(239,68,68,0.25); margin-top: 4px; cursor: pointer;
+}
+.badge-void-entry {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 8px; border-radius: var(--radius-pill);
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+  background: rgba(13,148,136,0.10); color: #5eead4;
+  border: 1px solid rgba(13,148,136,0.25); margin-top: 4px;
+}
+
+/* ── VOID MODAL ─────────────────────────────────────────── */
+.void-modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(8,15,28,0.85); backdrop-filter: blur(6px);
+  z-index: 500; align-items: center; justify-content: center; padding: 24px;
+}
+.void-modal-overlay.show { display: flex; }
+.void-modal-box {
+  background: var(--navy-2); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 32px; width: 100%; max-width: 520px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+.void-modal-title {
+  font-family: var(--font-display); font-size: 17px; font-weight: 700;
+  color: var(--white); margin-bottom: 6px;
+}
+.void-modal-sub { font-size: 12.5px; color: var(--muted); margin-bottom: 22px; line-height: 1.6; }
+.void-modal-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 20px; }
+.void-modal-label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.void-modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 8px; }
+.void-warning-box {
+  background: rgba(239,68,68,0.07); border: 1px solid rgba(239,68,68,0.2);
+  border-radius: var(--radius-sm); padding: 10px 14px; margin-bottom: 20px;
+  font-size: 12px; color: #fca5a5; line-height: 1.6;
+}
+
+.meta-subtext { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+/* Empty state styling */
+.empty-state { text-align: center; padding: 80px 24px; color: var(--muted); }
+.empty-icon { font-size: 40px; margin-bottom: 12px; opacity: 0.6; }
+
+/* Pagination rows */
+.ledger-footer {
+  padding: 14px 24px; border-top: 1px solid var(--border-soft);
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 12px; color: var(--muted); background: rgba(14,26,46,0.3);
+}
+
+/* ── MOBILE OVERLAY ─────────────────────────────────────── */
+.mobile-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 99; }
+.mobile-overlay.show { display: block; }
+
+@media (max-width: 992px) {
+  .filter-grid { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 768px) {
+  .sidebar { left: -240px; }
+  .sidebar.open { left: 0; }
+  .main-area { margin-left: 0; }
+  .mobile-menu-btn { display: block; }
+  .stats-ribbon { grid-template-columns: 1fr 1fr; }
+  .filter-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<div class="mobile-overlay" id="mobileOverlay"></div>
+
+<!-- toast -->
+<div id="toastContainer" aria-live="polite" aria-atomic="true" style="position: fixed; top: 76px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 8px;"></div>
+
+<!-- ── APP SHELL ──────────────────────────────────────────── -->
+<div class="app-shell">
+
+  <!-- SIDEBAR -->
+  <nav role="navigation" class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <div class="sb-logo" id="sbLogo">⬡</div>
+      <div class="sb-name">
+        <span id="sbBizName">Exchange</span>
+        <small>Management System</small>
+      </div>
+    </div>
+
+    <div class="nav-group-label">Main</div>
+    <a href="dashboard.html" class="nav-item"><span class="nav-icon">📊</span> Dashboard</a>
+    <a href="new-transaction.html" class="nav-item"><span class="nav-icon">➕</span> New Transaction</a>
+    <a href="transactions.html" class="nav-item active" aria-current="page"><span class="nav-icon">📋</span> All Transactions</a>
+    <a href="clients.html" class="nav-item"><span class="nav-icon">👥</span> Clients KYC</a>
+
+    <div class="nav-group-label">System</div>
+    <a href="chain-integrity.html" class="nav-item"><span class="nav-icon">🔐</span> Chain Integrity</a>
+    <a href="reports.html" class="nav-item"><span class="nav-icon">📑</span> Reports</a>
+    <a href="settings.html" class="nav-item"><span class="nav-icon">⚙️</span> Settings</a>
+    <a href="audit-log-view.html" class="nav-item"><span class="nav-icon">📁</span> Audit Logs</a>
+
+    <div class="sidebar-footer">
+      <div class="session-pill">⏱ Session: <span id="sessionTimer">—</span></div>
+      <button class="nav-item" id="logoutBtn"><span class="nav-icon">🚪</span> Logout</button>
+    </div>
+  </nav>
+
+  <!-- MAIN AREA -->
+  <div class="main-area">
+
+    <!-- TOPBAR -->
+    <div class="page-topbar">
+      <div class="ptb-left">
+        <button class="mobile-menu-btn" id="mobileMenuBtn">☰</button>
+        <div>
+          <div class="ptb-title">📋 Ledger & Block Log</div>
+          <div class="ptb-sub" id="ptbSub">Read-only cryptographic transaction chain</div>
+        </div>
+      </div>
+      <div>
+        <a class="btn-primary btn-sm" href="new-transaction.html">＋ Add Transaction Block</a>
+      </div>
+    </div>
+
+    <!-- BODY -->
+    <div class="page-body">
+
+      <!-- Stats ribbon ledger values -->
+      <div class="stats-ribbon">
+        <div class="stat-mini-card">
+          <div class="smc-lbl">Chained Blocks</div>
+          <div class="smc-val" id="stTotalBlocks">0</div>
+        </div>
+        <div class="stat-mini-card">
+          <div class="smc-lbl">Total Volume (PKR)</div>
+          <div class="smc-val" id="stTotalValPkr">₨ 0</div>
+        </div>
+        <div class="stat-mini-card">
+          <div class="smc-lbl">Buy Inflows (USDT)</div>
+          <div class="smc-val green" id="stBuyVolume">0.00 USDT</div>
+        </div>
+        <div class="stat-mini-card">
+          <div class="smc-lbl">Sell Outflows (USDT)</div>
+          <div class="smc-val gold" id="stSellVolume">0.00 USDT</div>
+        </div>
+      </div>
+
+      <!-- Unified Dynamic Filter Card -->
+      <div class="filter-card">
+        <div class="filter-grid">
+          
+          <div class="filter-group">
+            <label class="filter-label">Search Ledger</label>
+            <input type="text" class="form-input" id="fSearch" placeholder="Type Receipt, Client, CNIC, Bank or Payment Ref…" oninput="filterLedger()">
+          </div>
+
+          <div class="filter-group">
+            <label class="filter-label">Transaction Type</label>
+            <select class="form-input" id="fType" onchange="filterLedger()">
+              <option value="all">— Show All —</option>
+              <option value="buy">📥 Buy Blocks</option>
+              <option value="sell">📤 Sell Blocks</option>
+            </select>
+          </div>
+
+          <div class="filter-group">
+            <label class="filter-label">Start Date</label>
+            <input type="date" class="form-input" id="fStart" onchange="filterLedger()">
+          </div>
+
+          <div class="filter-group">
+            <label class="filter-label">End Date</label>
+            <input type="date" class="form-input" id="fEnd" onchange="filterLedger()">
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Table Card list -->
+      <div class="ledger-card">
+        <div class="table-responsive">
+          <table class="ledger-table">
+            <thead>
+              <tr>
+                <th>Block #</th>
+                <th>Receipt #</th>
+                <th>Date & Time</th>
+                <th>Type</th>
+                <th>Client Identity & Bank</th>
+                <th>PKR Volume</th>
+                <th>Rate</th>
+                <th>USDT Volume</th>
+                <th>Profit (PKR)</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="ledgerTableBody">
+              <!-- Dynamically populated rows -->
+            </tbody>
+          </table>
+        </div>
+
+        <div id="emptyLedgerState" class="empty-state" style="display:none;">
+          <div class="empty-icon">📂</div>
+          <div style="font-size:15px; font-weight:700; color:#fff;">No Chained Blocks Found</div>
+          <div style="font-size:12px; margin-top:4px;">No transactions match your search filter criteria.</div>
+        </div>
+
+        <!-- Pagination and totals counter -->
+        <div class="ledger-footer">
+          <div id="footerSummary">Showing 0 of 0 logs</div>
+          <div style="display:flex; gap:6px;">
+            <button class="btn-secondary btn-sm" id="btnExportCSV" onclick="exportLedgerCsv()">📄 Export ledger as CSV</button>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /body -->
+  </div><!-- /main area -->
+</div><!-- /app shell -->
+
+<!-- ── VOID / CORRECTION MODAL ──────────────────────────────── -->
+<div class="void-modal-overlay" id="voidModal">
+  <div class="void-modal-box">
+    <div class="void-modal-title">🚫 Mark as Voided — Create Correction Entry</div>
+    <div class="void-modal-sub" id="voidModalSub">
+      Loading transaction details…
+    </div>
+    <div class="void-warning-box">
+      ⚠️ The original transaction will <strong>not</strong> be modified or deleted — it remains permanently in the chain for audit. A new correction block will be appended to the chain referencing this record.
+    </div>
+    <div class="void-modal-field">
+      <label class="void-modal-label">Void Reason <span style="color:#f87171;">*</span> (mandatory)</label>
+      <textarea
+        id="voidReason"
+        class="form-input"
+        rows="4"
+        placeholder="Describe the error being corrected — wrong amount, incorrect client name, wrong exchange rate, duplicate entry, etc."
+        style="resize: vertical; font-size: 13px;"
+      ></textarea>
+    </div>
+    <div class="void-modal-actions">
+      <button class="btn-secondary" onclick="closeVoidModal()">Cancel</button>
+      <button class="btn-primary" id="voidConfirmBtn" onclick="confirmVoid()" style="background: #dc2626; border-color: #dc2626;">
+        🚫 Confirm Void &amp; Create Correction Block
+      </button>
+    </div>
+  </div>
+</div>
+
+<script src="db.js"></script>
+<script src="auth.js"></script>
+<script src="profile.js"></script>
+<script src="audit-log.js"></script>
+<script src="hash-engine.js"></script>
+<script>
+'use strict';
+
+// ── STATE ─────────────────────────────────────────────────
+let _transactions = [];
+
+// ── INIT ──────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', async () => {
+  // Guard access security
+  if (!Auth.requireAuth()) return;
+
+  await DB.init();
+  await loadProfile();
+  await loadTransactionsLedger();
+
+  setupSession();
+  setupMobileNav();
+  setupLogout();
+});
+
+// ── SIDEBAR PROFILE ───────────────────────────────────────
+async function loadProfile() {
+  try {
+    const p = await Profile.get();
+    if (p) {
+      document.getElementById('sbLogo').textContent = p.logoEmoji || '⬡';
+      document.getElementById('sbBizName').textContent = p.businessName || 'ExchangeTable';
+    }
+  } catch(e) {}
+}
+
+async function loadTransactionsLedger() {
+  try {
+    // Read final immutable blocks ordered by chain index descending
+    const rows = await DB.all('SELECT * FROM transactions ORDER BY chain_index DESC');
+
+    // Enrich each transaction with void info so the table can render badges
+    // without async lookups per-row during render.
+    // For void entries (is_void=1) we already have voids_chain_index.
+    // For normal txns we look up whether a correction entry references them.
+    _transactions = await Promise.all(rows.map(async t => {
+      if (t.is_void) {
+        t._voidInfo = null; // correction entries are not themselves voided
+      } else {
+        t._voidInfo = await HashEngine.getVoidInfo(t.chain_index);
+      }
+      return t;
+    }));
+
+    calculateRibbonStats();
+    filterLedger();
+
+  } catch(e) {
+    Toast.show('Database ledger fetch error: ' + e.message, 'error');
+  }
+}
+
+// ── CALCULATE STATS ───────────────────────────────────────
+function calculateRibbonStats() {
+  let totalBlocks = _transactions.length;
+  let volumePkr   = 0;
+  let buyUsdt     = 0;
+  let sellUsdt    = 0;
+
+  _transactions.forEach(t => {
+    volumePkr += parseFloat(t.amount_pkr) || 0;
+    const usdtVal = parseFloat(t.amount_usdt) || 0;
+    if (t.txn_type === 'buy') {
+      buyUsdt += usdtVal;
+    } else {
+      sellUsdt += usdtVal;
+    }
+  });
+
+  document.getElementById('stTotalBlocks').textContent = totalBlocks;
+  document.getElementById('stTotalValPkr').textContent = `₨ ${Math.round(volumePkr).toLocaleString()}`;
+  document.getElementById('stBuyVolume').textContent = `${buyUsdt.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})} USDT`;
+  document.getElementById('stSellVolume').textContent = `${sellUsdt.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})} USDT`;
+}
+
+// ── FILTER LEDGER LIST ────────────────────────────────────
+function filterLedger() {
+  const search = document.getElementById('fSearch').value.toLowerCase().trim();
+  const type   = document.getElementById('fType').value;
+  const start  = document.getElementById('fStart').value;
+  const end    = document.getElementById('fEnd').value;
+
+  const tbody = document.getElementById('ledgerTableBody');
+  const empty = document.getElementById('emptyLedgerState');
+
+  const filtered = _transactions.filter(t => {
+    // 1. Search filter matches
+    if (search) {
+      const matchText = [
+        t.receipt_number,
+        t.client_name,
+        t.client_cnic,
+        t.bank_name,
+        t.payment_ref,
+        t.order_id
+      ].join(' ').toLowerCase();
+
+      if (!matchText.includes(search)) return false;
+    }
+
+    // 2. Type filter matches
+    if (type !== 'all' && t.txn_type !== type) return false;
+
+    // 3. Date constraints matches
+    if (start) {
+      const tDate = t.timestamp.split('T')[0];
+      if (tDate < start) return false;
+    }
+    if (end) {
+      const tDate = t.timestamp.split('T')[0];
+      if (tDate > end) return false;
+    }
+
+    return true;
+  });
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = '';
+    empty.style.display = 'block';
+    document.getElementById('footerSummary').textContent = `Showing 0 of ${_transactions.length} blocks`;
+    return;
+  }
+
+  empty.style.display = 'none';
+  tbody.innerHTML = filtered.map(t => {
+    const isBuy = t.txn_type === 'buy';
+    const dateFormatted = new Date(t.timestamp).toLocaleString('en-PK', {
+      month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true
+    });
+
+    // ── Void status badges ───────────────────────────────────────────
+    // Case A: this row IS a correction/void entry
+    let voidBadgeHtml = '';
+    if (t.is_void) {
+      voidBadgeHtml = `<div><span class="badge-void-entry">↩️ CORRECTION — Voids Block #${t.voids_chain_index}</span></div>`;
+    } else if (t._voidInfo && t._voidInfo.voided) {
+      // Case B: this normal transaction HAS been voided by a correction entry
+      const voidReceipt = encodeURIComponent(t._voidInfo.voidReceiptNumber);
+      voidBadgeHtml = `<div>
+        <a href="receipt.html?receipt=${voidReceipt}" class="badge-voided">
+          🚫 VOIDED — See Block #${t._voidInfo.voidChainIndex}
+        </a>
+      </div>`;
+    }
+
+    // ── Action cell ─────────────────────────────────────────────────
+    // Void entries and already-voided transactions cannot be voided again.
+    const canVoid = !t.is_void && !(t._voidInfo && t._voidInfo.voided);
+    const voidBtn = canVoid
+      ? `<button class="btn-secondary btn-sm" onclick="openVoidModal(${t.chain_index})" style="padding:4px 8px; font-size:11px; color:#fca5a5; border-color:rgba(239,68,68,0.3);">🚫 Void</button>`
+      : '';
+
+    return `
+      <tr>
+        <td><span class="badge-chain">#${t.chain_index}</span></td>
+        <td style="font-weight:700; color:#fff;" class="mono">${esc(t.receipt_number)}</td>
+        <td>${dateFormatted}</td>
+        <td><span class="badge-type ${t.txn_type}">${isBuy ? '📥 Buy' : '📤 Sell'}</span></td>
+        <td>
+          <div style="font-weight:600;">${esc(t.client_name || 'Walk-in Client')}</div>
+          <div class="meta-subtext mono">${esc(t.client_cnic || 'No CNIC register')}</div>
+          ${t.bank_name ? `<div class="meta-subtext" style="color:var(--blue);">${esc(t.bank_name)} ${t.bank_last4 ? '(last 4: ' + t.bank_last4 + ')' : ''}</div>` : ''}
+          ${voidBadgeHtml}
+        </td>
+        <td class="mono font-semibold">₨ ${parseFloat(t.amount_pkr).toLocaleString('en-PK', {minimumFractionDigits:1})}</td>
+        <td class="mono" style="color:var(--muted);">${parseFloat(t.exchange_rate).toFixed(3)}</td>
+        <td class="mono" style="font-weight:600; color:var(--blue);">${parseFloat(t.amount_usdt).toFixed(2)} USDT</td>
+        <td class="mono" style="font-weight:600;${profitColor(t.profit_pkr)}">${fmtProfit(t.profit_pkr)}</td>
+        <td style="white-space:nowrap; display:flex; gap:5px; align-items:center; flex-wrap:wrap;">
+          <a class="btn-secondary btn-sm" href="receipt.html?receipt=${encodeURIComponent(t.receipt_number)}" style="padding:4px 8px; font-size:11px;">🔍 View Block</a>
+          ${voidBtn}
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  document.getElementById('footerSummary').textContent = `Showing ${filtered.length} of ${_transactions.length} blocks`;
+}
+
+// ── EXPORT LEDGER AS CSV ──────────────────────────────────
+function exportLedgerCsv() {
+  if (_transactions.length === 0) {
+    Toast.show('No transaction blocks are loaded to export.', 'warning');
+    return;
+  }
+
+  const headers = ['Chain Index', 'Receipt Number', 'Order ID', 'Timestamp', 'Type', 'Amount PKR', 'Rate', 'Amount USDT', 'Cost Rate', 'Profit PKR', 'Client Name', 'Client CNIC', 'Bank Name', 'Bank Account Last4', 'Payment Ref', 'Block Hash'];
+  
+  const csvRows = [headers.join(',')];
+
+  _transactions.forEach(t => {
+    const row = [
+      t.chain_index,
+      `"${t.receipt_number}"`,
+      `"${t.order_id || ''}"`,
+      `"${t.timestamp}"`,
+      `"${t.txn_type.toUpperCase()}"`,
+      t.amount_pkr,
+      t.exchange_rate,
+      t.amount_usdt,
+      (t.cost_rate === null || t.cost_rate === undefined) ? '' : t.cost_rate,
+      (t.profit_pkr === null || t.profit_pkr === undefined) ? '' : t.profit_pkr,
+      `"${(t.client_name || '').replace(/"/g, '""')}"`,
+      `"${t.client_cnic || ''}"`,
+      `"${t.bank_name || ''}"`,
+      `"${t.bank_last4 || ''}"`,
+      `"${t.payment_ref || ''}"`,
+      `"${t.hash}"`
+    ];
+    csvRows.push(row.join(','));
+  });
+
+  const blob = new Blob([csvRows.join('\n')], {type: 'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `Ledger-Export-${new Date().toISOString().split('T')[0]}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+
+  AuditLog.add('LEDGER_EXPORTED_CSV', `Exported ${_transactions.length} rows to CSV`);
+  Toast.show('📄 Ledger CSV export finished! Check download folder.', 'success');
+}
+
+// ── UTILITIES ─────────────────────────────────────────────
+function setTxt(id, v) { const e = document.getElementById(id); if (e) e.textContent = v; }
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#x27;'); }
+
+// Profit display: NULL/blank shows as "—" rather than 0, since a missing
+// profit figure is not the same as a confirmed zero-profit transaction.
+function fmtProfit(v) {
+  if (v === null || v === undefined || v === '') return '—';
+  const n = parseFloat(v);
+  if (isNaN(n)) return '—';
+  return `₨ ${n.toLocaleString('en-PK', {minimumFractionDigits:2, maximumFractionDigits:2})}`;
+}
+function profitColor(v) {
+  if (v === null || v === undefined || v === '') return ' color:var(--muted);';
+  const n = parseFloat(v);
+  if (isNaN(n)) return ' color:var(--muted);';
+  if (n > 0) return ' color:var(--green);';
+  if (n < 0) return ' color:#FCA5A5;';
+  return ' color:var(--muted);';
+}
+
+function setupSession() {
+  function tick() {
+    try {
+      const raw = localStorage.getItem('dems_session');
+      if (!raw) return;
+      const s = JSON.parse(raw);
+      const left = Math.max(0, Math.floor((s.expiresAt - Date.now()) / 1000));
+      const m = Math.floor(left / 60), sec = left % 60;
+      setTxt('sessionTimer', m + ':' + String(sec).padStart(2 ,'0'));
+    } catch(e) {}
+  }
+  tick(); setInterval(tick, 1000);
+}
+
+function setupLogout() {
+  document.getElementById('logoutBtn').addEventListener('click', () => { Auth.logout(); });
+}
+
+function setupMobileNav() {
+  const btn = document.getElementById('mobileMenuBtn');
+  const sb  = document.getElementById('sidebar');
+  const ov  = document.getElementById('mobileOverlay');
+  if (!btn) return;
+  btn.addEventListener('click', () => { sb.classList.toggle('open'); ov.classList.toggle('show'); });
+  ov.addEventListener('click', () => { sb.classList.remove('open'); ov.classList.remove('show'); });
+}
+
+// ── VOID / CORRECTION MODAL ───────────────────────────────
+let _voidTargetChainIndex = null;
+
+async function openVoidModal(chainIndex) {
+  const txn = _transactions.find(t => t.chain_index === chainIndex);
+  if (!txn) {
+    Toast.show('Transaction not found.', 'error');
+    return;
+  }
+
+  _voidTargetChainIndex = chainIndex;
+
+  // Populate descriptive sub-line so the operator sees exactly which record
+  // they are about to void before committing.
+  const dateStr = new Date(txn.timestamp).toLocaleString('en-PK', { hour12: true });
+  document.getElementById('voidModalSub').textContent =
+    `Block #${txn.chain_index} | ${txn.receipt_number} | ` +
+    `${txn.txn_type.toUpperCase()} | ` +
+    `₨ ${parseFloat(txn.amount_pkr).toLocaleString()} | ` +
+    `${parseFloat(txn.amount_usdt).toFixed(2)} USDT | ` +
+    `${txn.client_name || 'Walk-in'} | ${dateStr}`;
+
+  document.getElementById('voidReason').value = '';
+  document.getElementById('voidModal').classList.add('show');
+  document.getElementById('voidReason').focus();
+}
+
+function closeVoidModal() {
+  document.getElementById('voidModal').classList.remove('show');
+  _voidTargetChainIndex = null;
+}
+
+async function confirmVoid() {
+  const reason = document.getElementById('voidReason').value.trim();
+  if (!reason) {
+    Toast.show('A void reason is mandatory. Please describe the error being corrected.', 'warning');
+    document.getElementById('voidReason').focus();
+    return;
+  }
+
+  if (_voidTargetChainIndex === null) {
+    Toast.show('No transaction selected for voiding.', 'error');
+    return;
+  }
+
+  const btn = document.getElementById('voidConfirmBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Creating Correction Block…';
+
+  try {
+    const result = await HashEngine.voidTransaction(_voidTargetChainIndex, reason);
+
+    if (!result.success) {
+      Toast.show('Void failed: ' + result.error, 'error');
+      btn.disabled = false;
+      btn.innerHTML = '🚫 Confirm Void &amp; Create Correction Block';
+      return;
+    }
+
+    Toast.show(
+      `✅ Correction block created: ${result.receiptNumber} (Block #${result.record.chain_index})`,
+      'success',
+      5000
+    );
+    closeVoidModal();
+
+    // Reload the full ledger so both the original (now badged VOIDED) and
+    // the new correction entry appear in the table immediately.
+    await loadTransactionsLedger();
+
+  } catch (e) {
+    Toast.show('Unexpected error: ' + e.message, 'error');
+    btn.disabled = false;
+    btn.innerHTML = '🚫 Confirm Void &amp; Create Correction Block';
+  }
+}
+
+// Close void modal on overlay click
+document.getElementById('voidModal').addEventListener('click', function(e) {
+  if (e.target === this) closeVoidModal();
+});
+
+const Toast = {
+  show(msg, type='info', dur=3500) {
+    const c = document.getElementById('toastContainer');
+    const t = document.createElement('div');
+    const icons = { success:'✅', error:'❌', info:'ℹ️', warning:'⚠️' };
+    t.className = `toast ${type}`;
+    t.innerHTML = `<span>${icons[type]||'ℹ️'}</span><span>${msg}</span>`;
+    c.appendChild(t);
+    setTimeout(() => { t.style.opacity='0'; t.style.transition='opacity 0.3s'; setTimeout(()=>t.remove(),300); }, dur);
+  }
+};
+</script>
+</body>
+</html>

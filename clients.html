@@ -1,0 +1,1436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy"
+  content="default-src 'self';
+           script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com;
+           style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com;
+           font-src https://fonts.gstatic.com;
+           connect-src 'self' https://worldtimeapi.org;
+           img-src 'self' data: blob:;
+           object-src 'none';
+           base-uri 'self';">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Client KYC — DEMS</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<style>
+
+/* ── APP SHELL ──────────────────────────────────────────── */
+.app-shell { display: flex; min-height: 100vh; }
+
+.sidebar {
+  width: 220px; flex-shrink: 0;
+  background: var(--navy-2);
+  border-right: 1px solid var(--border);
+  padding: 24px 12px;
+  position: fixed; top: 0; left: 0; height: 100vh;
+  overflow-y: auto; z-index: 100;
+  display: flex; flex-direction: column;
+  transition: left 0.25s;
+}
+.sidebar-brand {
+  display: flex; align-items: center; gap: 10px;
+  padding: 0 8px 20px; border-bottom: 1px solid var(--border); margin-bottom: 20px;
+}
+.sb-logo { font-size: 22px; color: var(--blue); }
+.sb-name { font-family: var(--font-display); font-size: 15px; font-weight: 700; color: var(--white); line-height: 1.1; }
+.sb-name small { display: block; color: var(--muted); font-size: 10px; font-weight: 400; }
+.nav-group-label {
+  font-size: 10px; font-weight: 600; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.1em;
+  padding: 0 8px; margin: 16px 0 6px;
+}
+.nav-item {
+  display: flex; align-items: center; gap: 9px;
+  padding: 9px 10px; border-radius: var(--radius-sm);
+  font-size: 13px; font-weight: 500; color: var(--muted);
+  text-decoration: none; transition: all 0.15s; margin-bottom: 2px;
+  background: none; border: none; cursor: pointer; width: 100%; text-align: left;
+}
+.nav-item:hover { background: var(--blue-glow); color: var(--white); text-decoration: none; }
+.nav-item.active { background: var(--blue-glow); color: var(--blue); border: 1px solid rgba(14,165,233,0.2); }
+.nav-icon { font-size: 15px; width: 18px; text-align: center; flex-shrink: 0; }
+.sidebar-footer { margin-top: auto; padding-top: 16px; border-top: 1px solid var(--border); }
+.session-pill {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11px; color: var(--muted); padding: 6px 10px; margin-bottom: 4px;
+}
+.session-pill span { color: var(--gold); font-family: var(--font-mono); }
+
+.main-area { margin-left: 220px; flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+
+/* ── PAGE TOPBAR ────────────────────────────────────────── */
+.page-topbar {
+  position: sticky; top: 0; z-index: 50;
+  background: rgba(8,15,28,0.92); backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--border);
+  padding: 0 32px; height: 60px;
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+}
+.ptb-left { display: flex; align-items: center; gap: 14px; }
+.ptb-title { font-family: var(--font-display); font-size: 17px; font-weight: 700; color: var(--white); }
+.ptb-sub { font-size: 12px; color: var(--muted); }
+.ptb-right { display: flex; align-items: center; gap: 10px; }
+.mobile-menu-btn { display: none; background: none; border: none; color: var(--white); font-size: 20px; cursor: pointer; padding: 4px 8px; }
+
+/* ── STATS ROW ──────────────────────────────────────────── */
+.stats-row {
+  display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px;
+  padding: 24px 32px 0;
+}
+.s-card {
+  background: var(--navy-2); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 18px 20px;
+  position: relative; overflow: hidden;
+}
+.s-card::after {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+}
+.s-card.c-blue::after  { background: var(--blue); }
+.s-card.c-green::after { background: var(--green); }
+.s-card.c-gold::after  { background: var(--gold); }
+.s-card.c-red::after   { background: var(--red); }
+.s-card.c-muted::after { background: var(--muted); }
+.s-val { font-family: var(--font-display); font-size: 26px; font-weight: 700; margin-bottom: 3px; }
+.s-card.c-blue  .s-val { color: var(--blue); }
+.s-card.c-green .s-val { color: var(--green); }
+.s-card.c-gold  .s-val { color: var(--gold); }
+.s-card.c-red   .s-val { color: var(--red); }
+.s-card.c-muted .s-val { color: var(--muted); }
+.s-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; }
+
+/* ── FILTER BAR ─────────────────────────────────────────── */
+.filter-section { padding: 20px 32px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.search-wrap { position: relative; flex: 1; min-width: 220px; }
+.search-wrap .search-ico { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); font-size: 14px; color: var(--muted); pointer-events: none; }
+.search-wrap .form-input { padding-left: 38px; }
+.filter-select { width: 150px; flex-shrink: 0; }
+.filter-btn-group { display: flex; gap: 6px; }
+.fbtn {
+  padding: 8px 14px; border-radius: var(--radius-sm);
+  font-size: 12px; font-weight: 600; cursor: pointer;
+  border: 1px solid var(--border); background: var(--navy-3);
+  color: var(--muted); transition: all 0.15s;
+}
+.fbtn:hover { border-color: var(--blue); color: var(--blue); background: var(--blue-glow); }
+.fbtn.active { background: var(--blue-glow); border-color: var(--blue); color: var(--blue); }
+.filter-count { font-size: 12px; color: var(--muted); white-space: nowrap; margin-left: auto; }
+
+/* ── CLIENT TABLE ───────────────────────────────────────── */
+.table-section { padding: 0 32px 32px; }
+.tbl-card { background: var(--navy-2); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+.tbl-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); flex-wrap: wrap; gap: 10px; }
+.tbl-head-title { font-family: var(--font-display); font-size: 14px; font-weight: 700; color: var(--white); }
+.tbl-wrap { overflow-x: auto; }
+
+table { width: 100%; border-collapse: collapse; }
+thead th {
+  background: var(--navy-3); padding: 11px 14px;
+  font-family: var(--font-display); font-size: 10.5px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted);
+  border-bottom: 1px solid var(--border); white-space: nowrap;
+  cursor: pointer; user-select: none; transition: color 0.15s;
+}
+thead th:hover { color: var(--white); }
+thead th.sorted { color: var(--blue); }
+.sort-arrow { margin-left: 4px; opacity: 0.6; }
+
+tbody td { padding: 13px 14px; border-bottom: 1px solid var(--border-soft); font-size: 13px; color: var(--white); vertical-align: middle; }
+tbody tr:last-child td { border-bottom: none; }
+tbody tr { transition: background 0.12s; cursor: pointer; }
+tbody tr:hover td { background: rgba(14,165,233,0.04); }
+
+/* Client name cell */
+.client-avatar {
+  width: 34px; height: 34px; border-radius: 50%;
+  background: var(--blue-glow); border: 1px solid rgba(14,165,233,0.25);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-display); font-size: 13px; font-weight: 700;
+  color: var(--blue); flex-shrink: 0;
+}
+.client-avatar.flagged { background: var(--red-glow); border-color: rgba(239,68,68,0.3); color: var(--red); }
+.client-avatar.verified { background: var(--green-glow); border-color: rgba(16,185,129,0.3); color: var(--green); }
+.client-cell { display: flex; align-items: center; gap: 10px; }
+.client-name-primary { font-weight: 600; font-size: 13.5px; }
+.client-name-cnic { font-family: var(--font-mono); font-size: 10.5px; color: var(--muted); margin-top: 2px; }
+
+/* Badges */
+.chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 9px; border-radius: var(--radius-pill);
+  font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.chip-verified { background: rgba(16,185,129,0.12); color: var(--green); border: 1px solid rgba(16,185,129,0.25); }
+.chip-flagged  { background: rgba(239,68,68,0.10); color: #FCA5A5; border: 1px solid rgba(239,68,68,0.25); }
+.chip-normal   { background: var(--navy-3); color: var(--muted); border: 1px solid var(--border); }
+
+/* Volume display */
+.vol-pkr { font-family: var(--font-display); font-weight: 600; font-size: 13px; }
+.vol-count { font-size: 11px; color: var(--muted); }
+
+/* Hash short */
+.hash-short { font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
+
+/* Pagination */
+.pagination { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-top: 1px solid var(--border); flex-wrap: wrap; gap: 10px; }
+.pg-info { font-size: 12px; color: var(--muted); }
+.pg-btns { display: flex; gap: 4px; }
+.pg-btn {
+  min-width: 32px; height: 32px; padding: 0 8px;
+  border-radius: var(--radius-sm);
+  font-size: 12px; font-weight: 600;
+  background: var(--navy-3); border: 1px solid var(--border);
+  color: var(--muted); cursor: pointer; transition: all 0.15s;
+}
+.pg-btn:hover:not(:disabled) { background: var(--blue-glow); color: var(--blue); border-color: var(--blue); }
+.pg-btn.active { background: var(--blue); border-color: var(--blue); color: #fff; }
+.pg-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+/* ── CLIENT DETAIL DRAWER ───────────────────────────────── */
+.drawer-overlay {
+  position: fixed; inset: 0; background: rgba(8,15,28,0.75);
+  backdrop-filter: blur(4px); z-index: 300;
+  display: none; align-items: stretch; justify-content: flex-end;
+}
+.drawer-overlay.show { display: flex; }
+.drawer {
+  width: 480px; max-width: 95vw;
+  background: var(--navy-2); border-left: 1px solid var(--border);
+  overflow-y: auto; display: flex; flex-direction: column;
+  animation: slide-in-right 0.22s ease;
+}
+@keyframes slide-in-right { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+.drawer-header {
+  padding: 20px 24px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: flex-start; gap: 14px;
+  background: var(--navy-3); flex-shrink: 0;
+}
+.drawer-avatar {
+  width: 48px; height: 48px; border-radius: 50%;
+  background: var(--blue-glow); border: 1.5px solid rgba(14,165,233,0.3);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-display); font-size: 18px; font-weight: 700;
+  color: var(--blue); flex-shrink: 0;
+}
+.drawer-avatar.flagged { background: var(--red-glow); border-color: rgba(239,68,68,0.3); color: var(--red); }
+.drawer-avatar.verified { background: var(--green-glow); border-color: rgba(16,185,129,0.3); color: var(--green); }
+.drawer-title-block { flex: 1; }
+.drawer-name { font-family: var(--font-display); font-size: 18px; font-weight: 700; color: var(--white); }
+.drawer-cnic { font-family: var(--font-mono); font-size: 12px; color: var(--muted); margin-top: 3px; }
+.drawer-badges { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+.drawer-close {
+  width: 30px; height: 30px; border-radius: 50%;
+  background: var(--navy-2); border: 1px solid var(--border);
+  color: var(--muted); cursor: pointer; font-size: 14px;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s; flex-shrink: 0;
+}
+.drawer-close:hover { color: var(--white); background: rgba(239,68,68,0.15); border-color: rgba(239,68,68,0.3); }
+
+.drawer-body { padding: 20px 24px; flex: 1; }
+
+.d-section { margin-bottom: 22px; }
+.d-section-title {
+  font-size: 10px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.1em; color: var(--blue); margin-bottom: 12px;
+  padding-bottom: 8px; border-bottom: 1px solid var(--border);
+}
+.d-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 20px; }
+.d-row-full { grid-column: 1 / -1; }
+.d-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 3px; }
+.d-val { font-size: 13.5px; color: var(--white); font-weight: 500; word-break: break-all; }
+.d-val.mono { font-family: var(--font-mono); font-size: 12px; color: var(--blue); }
+.d-val.empty { color: var(--muted); font-style: italic; font-weight: 400; }
+.d-val.green { color: var(--green); }
+.d-val.gold  { color: var(--gold); }
+.d-val.red   { color: #FCA5A5; }
+
+/* Stat pills inside drawer */
+.stat-pills { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+.stat-pill {
+  background: var(--navy-3); border: 1px solid var(--border);
+  border-radius: var(--radius-md); padding: 10px 14px; flex: 1; min-width: 80px;
+}
+.sp-val { font-family: var(--font-display); font-size: 18px; font-weight: 700; color: var(--blue); }
+.sp-val.green { color: var(--green); }
+.sp-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-top: 2px; }
+
+/* Flag reason box */
+.flag-box {
+  background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2);
+  border-radius: var(--radius-md); padding: 12px 14px; margin-top: 12px;
+}
+.flag-box-label { font-size: 10px; font-weight: 600; color: #FCA5A5; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
+.flag-box-text { font-size: 13px; color: #FCA5A5; line-height: 1.6; }
+
+/* Transaction mini-list inside drawer */
+.mini-txn-list { display: flex; flex-direction: column; gap: 8px; }
+.mini-txn {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--navy-3); border: 1px solid var(--border);
+  border-radius: var(--radius-md); padding: 10px 12px;
+  text-decoration: none; cursor: pointer; transition: border-color 0.15s;
+}
+.mini-txn:hover { border-color: rgba(14,165,233,0.35); }
+.mini-txn-type { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; flex-shrink: 0; }
+.mtt-buy  { background: rgba(16,185,129,0.1); }
+.mtt-sell { background: rgba(245,158,11,0.1); }
+.mini-txn-info { flex: 1; }
+.mti-receipt { font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
+.mti-amount { font-family: var(--font-display); font-size: 13px; font-weight: 600; color: var(--white); }
+.mini-txn-date { font-size: 11px; color: var(--muted); white-space: nowrap; }
+
+.drawer-footer {
+  padding: 16px 24px; border-top: 1px solid var(--border);
+  display: flex; gap: 10px; flex-wrap: wrap; flex-shrink: 0;
+  background: var(--navy-3);
+}
+
+/* ── ADD / EDIT MODAL ───────────────────────────────────── */
+.modal-backdrop {
+  position: fixed; inset: 0; background: rgba(8,15,28,0.82);
+  backdrop-filter: blur(6px); z-index: 400;
+  display: none; align-items: center; justify-content: center; padding: 24px;
+}
+.modal-backdrop.show { display: flex; }
+.modal-box {
+  background: var(--navy-2); border: 1px solid var(--border);
+  border-radius: var(--radius-xl); padding: 32px;
+  width: 100%; max-width: 540px; max-height: 90vh; overflow-y: auto;
+  position: relative; animation: pop-in 0.2s ease;
+}
+@keyframes pop-in { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.modal-title { font-family: var(--font-display); font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+.modal-sub { font-size: 13px; color: var(--muted); margin-bottom: 24px; }
+.modal-close-btn {
+  position: absolute; top: 20px; right: 20px;
+  width: 32px; height: 32px; border-radius: 50%;
+  background: var(--navy-3); border: 1px solid var(--border);
+  color: var(--muted); cursor: pointer; font-size: 15px;
+  display: flex; align-items: center; justify-content: center;
+}
+.modal-close-btn:hover { color: var(--white); background: rgba(239,68,68,0.15); }
+
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+.form-group { margin-bottom: 14px; }
+.form-label { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 7px; display: block; }
+.form-label .req { color: var(--red); margin-left: 2px; }
+.form-label .opt { color: var(--muted); font-weight: 400; font-style: italic; text-transform: none; letter-spacing: 0; }
+.field-error { font-size: 11.5px; color: var(--red); margin-top: 5px; display: none; }
+.field-error.show { display: block; }
+
+/* Toggle switches */
+.toggle-group { display: flex; align-items: center; gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--border-soft); }
+.toggle-group:last-child { border-bottom: none; }
+.toggle-info { flex: 1; }
+.toggle-info-title { font-size: 13.5px; font-weight: 600; color: var(--white); }
+.toggle-info-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.toggle-switch { position: relative; flex-shrink: 0; }
+.toggle-switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+.toggle-track {
+  display: block; width: 42px; height: 24px; border-radius: 12px;
+  background: var(--navy-3); border: 1px solid var(--border);
+  cursor: pointer; transition: background 0.2s;
+  position: relative;
+}
+.toggle-track::after {
+  content: ''; position: absolute; top: 3px; left: 3px;
+  width: 16px; height: 16px; border-radius: 50%;
+  background: var(--muted); transition: all 0.2s;
+}
+input:checked + .toggle-track { background: var(--green); border-color: var(--green); }
+input:checked + .toggle-track::after { left: 21px; background: #fff; }
+input.flagged:checked + .toggle-track { background: var(--red); border-color: var(--red); }
+
+.flag-reason-group { margin-top: 10px; display: none; }
+.flag-reason-group.show { display: block; }
+.modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border); }
+
+/* ── FLAG CONFIRM MODAL ─────────────────────────────────── */
+.confirm-modal { max-width: 400px; }
+.confirm-icon { font-size: 40px; text-align: center; margin-bottom: 12px; }
+.confirm-title { font-family: var(--font-display); font-size: 18px; font-weight: 700; text-align: center; margin-bottom: 6px; }
+.confirm-sub { font-size: 13px; color: var(--muted); text-align: center; margin-bottom: 24px; line-height: 1.6; }
+
+/* ── EMPTY STATE ────────────────────────────────────────── */
+.empty-wrapper { padding: 64px 32px; text-align: center; }
+.empty-ico { font-size: 52px; margin-bottom: 16px; opacity: 0.5; }
+.empty-h { font-family: var(--font-display); font-size: 20px; font-weight: 700; color: var(--white); margin-bottom: 8px; }
+.empty-p { font-size: 14px; color: var(--muted); max-width: 340px; margin: 0 auto 24px; line-height: 1.7; }
+
+/* ── MOBILE ─────────────────────────────────────────────── */
+.mobile-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 99; }
+.mobile-overlay.show { display: block; }
+
+@media (max-width: 900px) {
+  .stats-row { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 768px) {
+  .sidebar { left: -240px; }
+  .sidebar.open { left: 0; }
+  .mobile-menu-btn { display: block; }
+  .main-area { margin-left: 0; }
+  .stats-row { padding: 16px 16px 0; gap: 10px; }
+  .filter-section { padding: 14px 16px; }
+  .table-section { padding: 0 16px 24px; }
+  .filter-select { width: 120px; }
+  .form-row { grid-template-columns: 1fr; }
+  .d-grid { grid-template-columns: 1fr; }
+  .drawer { width: 100%; }
+  .ptb-left .ptb-sub { display: none; }
+}
+@media (max-width: 500px) {
+  .stats-row { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .s-val { font-size: 22px; }
+  .modal-box { padding: 20px 16px; }
+}
+
+/* Toast container */
+#toastContainer { position: fixed; top: 72px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+</style>
+</head>
+<body>
+
+<div class="mobile-overlay" id="mobileOverlay"></div>
+
+<!-- Toast -->
+<div id="toastContainer" aria-live="polite" aria-atomic="true"></div>
+
+<!-- ── SIDEBAR ───────────────────────────────────────────── -->
+<nav role="navigation" class="sidebar" id="sidebar">
+  <div class="sidebar-brand">
+    <span class="sb-logo" id="sbLogo">⬡</span>
+    <div class="sb-name"><span id="sbBizName">Exchange</span><small>DEMS v1.0</small></div>
+  </div>
+
+  <span class="nav-group-label">Main</span>
+  <a href="dashboard.html" class="nav-item"><span class="nav-icon">📊</span> Dashboard</a>
+  <a href="new-transaction.html" class="nav-item"><span class="nav-icon">➕</span> New Transaction</a>
+  <a href="transactions.html" class="nav-item"><span class="nav-icon">📋</span> All Transactions</a>
+  <a href="clients.html" class="nav-item active" aria-current="page"><span class="nav-icon">👤</span> Client KYC</a>
+
+  <span class="nav-group-label">System</span>
+  <a href="chain-integrity.html" class="nav-item"><span class="nav-icon">🔗</span> Chain Integrity</a>
+  <a href="reports.html" class="nav-item"><span class="nav-icon">📑</span> Reports</a>
+  <a href="settings.html" class="nav-item"><span class="nav-icon">⚙️</span> Settings</a>
+  <a href="audit-log-view.html" class="nav-item"><span class="nav-icon">📁</span> Audit Logs</a>
+
+  <div class="sidebar-footer">
+    <div class="session-pill">Session: <span id="sessionTimer">--:--</span></div>
+    <button class="nav-item" id="logoutBtn"><span class="nav-icon">🚪</span> Logout</button>
+  </div>
+</nav>
+
+<!-- ── MAIN AREA ─────────────────────────────────────────── -->
+<div class="main-area">
+
+  <!-- Page topbar -->
+  <div class="page-topbar">
+    <div class="ptb-left">
+      <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Menu">☰</button>
+      <div>
+        <div class="ptb-title">👤 Client KYC</div>
+        <div class="ptb-sub" id="ptbSub">Loading…</div>
+      </div>
+    </div>
+    <div class="ptb-right">
+      <button class="btn-primary btn-sm" id="btnAddClient">＋ Add Client</button>
+    </div>
+  </div>
+
+  <!-- Stats row -->
+  <div class="stats-row">
+    <div class="s-card c-blue">
+      <div class="s-val" id="statTotal">—</div>
+      <div class="s-label">Total Clients</div>
+    </div>
+    <div class="s-card c-green">
+      <div class="s-val" id="statVerified">—</div>
+      <div class="s-label">Verified</div>
+    </div>
+    <div class="s-card c-gold">
+      <div class="s-val" id="statVolume">—</div>
+      <div class="s-label">Total Volume (PKR)</div>
+    </div>
+    <div class="s-card c-red">
+      <div class="s-val" id="statFlagged">—</div>
+      <div class="s-label">Flagged</div>
+    </div>
+    <div class="s-card c-muted">
+      <div class="s-val" id="statUnverified">—</div>
+      <div class="s-label">Unverified</div>
+    </div>
+  </div>
+
+  <!-- Filter bar -->
+  <div class="filter-section">
+    <div class="search-wrap">
+      <span class="search-ico">🔍</span>
+      <input type="text" class="form-input" id="searchInput" placeholder="Search name, CNIC, phone, bank…">
+    </div>
+    <select class="form-input filter-select" id="statusFilter">
+      <option value="">All Clients</option>
+      <option value="verified">✅ Verified</option>
+      <option value="flagged">🚩 Flagged</option>
+      <option value="normal">⚪ Normal</option>
+    </select>
+    <div class="filter-btn-group">
+      <button class="fbtn active" id="sortVolBtn" title="Sort by volume">↕ Volume</button>
+      <button class="fbtn" id="sortDateBtn" title="Sort by date added">↕ Date</button>
+      <button class="fbtn" id="sortNameBtn" title="Sort by name">↕ Name</button>
+    </div>
+    <span class="filter-count" id="filterCount"></span>
+  </div>
+
+  <!-- Table -->
+  <div class="table-section">
+    <div class="tbl-card">
+      <div class="tbl-head">
+        <div class="tbl-head-title" id="tblHeadTitle">All Clients</div>
+        <button class="btn-secondary btn-sm" id="exportCsvBtn">⬇ Export CSV</button>
+      </div>
+      <div class="tbl-wrap">
+        <table id="clientTable">
+          <thead>
+            <tr>
+              <th style="width:44px;">#</th>
+              <th style="min-width:180px;">Client</th>
+              <th style="min-width:130px;">CNIC</th>
+              <th style="min-width:120px;">Phone</th>
+              <th style="min-width:110px;">Bank</th>
+              <th style="min-width:130px;">Total Volume</th>
+              <th style="min-width:70px;">Txns</th>
+              <th style="min-width:100px;">Last Active</th>
+              <th style="min-width:100px;">Status</th>
+              <th style="width:80px;"></th>
+            </tr>
+          </thead>
+          <tbody id="clientTbody"></tbody>
+        </table>
+      </div>
+      <div class="pagination">
+        <span class="pg-info" id="pgInfo">—</span>
+        <div class="pg-btns" id="pgBtns"></div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /main-area -->
+
+<!-- ── CLIENT DETAIL DRAWER ──────────────────────────────── -->
+<div class="drawer-overlay" id="drawerOverlay">
+  <div class="drawer" id="drawer">
+
+    <div class="drawer-header">
+      <div class="drawer-avatar" id="dAvatar">??</div>
+      <div class="drawer-title-block">
+        <div class="drawer-name" id="dName">—</div>
+        <div class="drawer-cnic" id="dCnic">—</div>
+        <div class="drawer-badges" id="dBadges"></div>
+      </div>
+      <button class="drawer-close" id="drawerClose" aria-label="Close">✕</button>
+    </div>
+
+    <div class="drawer-body">
+
+      <!-- Stats pills -->
+      <div class="stat-pills">
+        <div class="stat-pill">
+          <div class="sp-val" id="dpTxns">—</div>
+          <div class="sp-label">Transactions</div>
+        </div>
+        <div class="stat-pill">
+          <div class="sp-val green" id="dpVolume">—</div>
+          <div class="sp-label">PKR Volume</div>
+        </div>
+        <div class="stat-pill">
+          <div class="sp-val" id="dpFirstDate">—</div>
+          <div class="sp-label">First Transaction</div>
+        </div>
+      </div>
+
+      <!-- Contact info -->
+      <div class="d-section">
+        <div class="d-section-title">📞 Contact Information</div>
+        <div class="d-grid">
+          <div>
+            <div class="d-label">Full Name</div>
+            <div class="d-val" id="dpFullName">—</div>
+          </div>
+          <div>
+            <div class="d-label">CNIC Number</div>
+            <div class="d-val mono" id="dpCnic">—</div>
+          </div>
+          <div>
+            <div class="d-label">Phone</div>
+            <div class="d-val" id="dpPhone">—</div>
+          </div>
+          <div>
+            <div class="d-label">WhatsApp</div>
+            <div class="d-val" id="dpWhatsapp">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bank info -->
+      <div class="d-section">
+        <div class="d-section-title">🏦 Bank Details</div>
+        <div class="d-grid">
+          <div>
+            <div class="d-label">Bank Name</div>
+            <div class="d-val" id="dpBank">—</div>
+          </div>
+          <div>
+            <div class="d-label">Account (last 4)</div>
+            <div class="d-val mono" id="dpAcct">—</div>
+          </div>
+          <div class="d-row-full">
+            <div class="d-label">Full Account #</div>
+            <div class="d-val mono" id="dpAcctFull">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- KYC Status -->
+      <div class="d-section">
+        <div class="d-section-title">🔐 KYC Status</div>
+        <div class="d-grid">
+          <div>
+            <div class="d-label">Verification</div>
+            <div class="d-val" id="dpVerified">—</div>
+          </div>
+          <div>
+            <div class="d-label">Flag Status</div>
+            <div class="d-val" id="dpFlagStatus">—</div>
+          </div>
+          <div>
+            <div class="d-label">Added On</div>
+            <div class="d-val" id="dpCreated">—</div>
+          </div>
+          <div>
+            <div class="d-label">Last Updated</div>
+            <div class="d-val" id="dpUpdated">—</div>
+          </div>
+        </div>
+        <div class="flag-box" id="dpFlagBox" style="display:none;">
+          <div class="flag-box-label">🚩 Flag Reason</div>
+          <div class="flag-box-text" id="dpFlagReason">—</div>
+        </div>
+        <div class="d-row-full" style="margin-top:10px;" id="dpNotesRow">
+          <div class="d-label">Notes</div>
+          <div class="d-val" id="dpNotes">—</div>
+        </div>
+      </div>
+
+      <!-- Recent transactions -->
+      <div class="d-section">
+        <div class="d-section-title">📋 Recent Transactions</div>
+        <div class="mini-txn-list" id="dpTxnList">
+          <div style="color:var(--muted);font-size:13px;text-align:center;padding:20px;">Loading…</div>
+        </div>
+      </div>
+
+    </div><!-- /drawer-body -->
+
+    <div class="drawer-footer">
+      <button class="btn-primary btn-sm" id="drawerEditBtn">✏️ Edit Client</button>
+      <button class="btn-secondary btn-sm" id="drawerVerifyBtn">✅ Mark Verified</button>
+      <button class="btn-secondary btn-sm" id="drawerFlagBtn">🚩 Flag Client</button>
+      <a href="transactions.html" class="btn-secondary btn-sm" id="drawerTxnsBtn">📋 All Transactions</a>
+    </div>
+  </div>
+</div>
+
+<!-- ── ADD / EDIT CLIENT MODAL ───────────────────────────── -->
+<div class="modal-backdrop" id="clientModal">
+  <div class="modal-box">
+    <button class="modal-close-btn" id="modalClose">✕</button>
+    <div class="modal-title" id="modalTitle">Add New Client</div>
+    <div class="modal-sub" id="modalSub">Enter client's KYC details for compliance records</div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Full Name <span class="req">*</span></label>
+        <input type="text" class="form-input" id="fName" placeholder="Muhammad Ali Khan" autocomplete="off">
+        <div class="field-error" id="errName">Name is required.</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">CNIC Number <span class="opt">(optional)</span></label>
+        <input type="text" class="form-input" id="fCnic" placeholder="35201-1234567-1" maxlength="15" autocomplete="off">
+        <div class="field-error" id="errCnic">Format: 35201-1234567-1</div>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Phone Number <span class="opt">(optional)</span></label>
+        <input type="tel" class="form-input" id="fPhone" placeholder="0300-1234567" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label class="form-label">WhatsApp <span class="opt">(optional)</span></label>
+        <input type="tel" class="form-input" id="fWhatsapp" placeholder="0300-1234567" autocomplete="off">
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Bank Name <span class="opt">(optional)</span></label>
+        <select class="form-input" id="fBank">
+          <option value="">— Select Bank —</option>
+          <option>HBL</option><option>UBL</option><option>MCB</option>
+          <option>Allied Bank</option><option>Bank Alfalah</option>
+          <option>Meezan Bank</option><option>Standard Chartered</option>
+          <option>Faysal Bank</option><option>Silk Bank</option>
+          <option>JS Bank</option><option>Askari Bank</option>
+          <option>Bank of Punjab</option><option>Habib Metro</option>
+          <option>EasyPaisa</option><option>JazzCash</option>
+          <option>Nayapay</option><option>SadaPay</option>
+          <option>Other</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Account Last 4 Digits <span class="opt">(optional)</span></label>
+        <input type="text" class="form-input" id="fBankLast4" placeholder="4242" maxlength="4" autocomplete="off">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Full Account / IBAN <span class="opt">(optional)</span></label>
+      <input type="text" class="form-input" id="fBankFull" placeholder="PK36 ABCD 0000 1123 4567 8901" autocomplete="off">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Notes <span class="opt">(optional)</span></label>
+      <textarea class="form-input" id="fNotes" placeholder="Any relevant notes about this client…" rows="2"></textarea>
+    </div>
+
+    <!-- KYC toggles -->
+    <div style="margin-bottom:14px;">
+      <div class="toggle-group">
+        <div class="toggle-info">
+          <div class="toggle-info-title">✅ Mark as Verified</div>
+          <div class="toggle-info-sub">Client's identity has been confirmed</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="fVerified">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+      <div class="toggle-group">
+        <div class="toggle-info">
+          <div class="toggle-info-title">🚩 Flag as Suspicious</div>
+          <div class="toggle-info-sub">Mark for monitoring — new transactions will show a warning</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="fFlagged" class="flagged">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+      <div class="flag-reason-group" id="flagReasonGroup">
+        <label class="form-label">Flag Reason <span class="req">*</span></label>
+        <textarea class="form-input" id="fFlagReason" placeholder="Reason for flagging this client…" rows="2"></textarea>
+        <div class="field-error" id="errFlagReason">Please provide a flag reason.</div>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-secondary" id="modalCancelBtn">Cancel</button>
+      <button class="btn-primary" id="modalSaveBtn">💾 Save Client</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── QUICK FLAG MODAL ──────────────────────────────────── -->
+<div class="modal-backdrop" id="flagModal">
+  <div class="modal-box confirm-modal">
+    <button class="modal-close-btn" id="flagModalClose">✕</button>
+    <div class="confirm-icon" id="flagModalIcon">🚩</div>
+    <div class="confirm-title" id="flagModalTitle">Flag Client</div>
+    <div class="confirm-sub" id="flagModalSub">This client will be marked as suspicious. New transactions from them will show a warning.</div>
+    <div class="form-group">
+      <label class="form-label">Reason <span class="req">*</span></label>
+      <textarea class="form-input" id="flagReasonInput" placeholder="Reason for flagging…" rows="3"></textarea>
+      <div class="field-error" id="errFlagInput">Please provide a reason.</div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="flagModalCancel">Cancel</button>
+      <button class="btn-danger" id="flagModalConfirm">🚩 Confirm Flag</button>
+    </div>
+  </div>
+</div>
+
+<!-- Scripts -->
+<script src="db.js"></script>
+<script src="auth.js"></script>
+<script src="profile.js"></script>
+<script src="audit-log.js"></script>
+<script src="hash-engine.js"></script>
+<script>
+'use strict';
+
+// ── STATE ─────────────────────────────────────────────────
+const PAGE_SIZE = 20;
+let _all      = [];   // all clients from DB
+let _filtered = [];   // after search/filter
+let _page     = 1;
+let _sortCol  = 'total_volume_pkr';
+let _sortDir  = 'desc';
+let _openClient = null;
+let _editMode   = false;
+
+// ── INIT ──────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', async () => {
+  // CRITICAL Security Requirement: Use identical, official auth guard as boot step
+  if (!Auth.requireAuth()) return;
+
+  await DB.init();
+
+  // Load profile for sidebar with precise camelCase keys
+  try {
+    const p = await Profile.get();
+    if (p) {
+      setTxt('sbLogo', p.logoEmoji || '⬡');
+      setTxt('sbBizName', p.businessName || 'Exchange');
+    }
+  } catch(e) {}
+
+  setupSession();
+  setupMobileNav();
+  setupLogout();
+  setupSearch();
+  setupFilters();
+  setupModal();
+  setupDrawer();
+  setupFlagModal();
+  setupExport();
+
+  await loadClients();
+});
+
+// ── HELPERS ───────────────────────────────────────────────
+function setTxt(id, v) { const e = document.getElementById(id); if (e) e.textContent = v; }
+function escHtml(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#x27;');
+}
+function fmtPkr(n) { return '₨ ' + parseFloat(n||0).toLocaleString('en-PK'); }
+function fmtPkrShort(n) {
+  const v = parseFloat(n||0);
+  if (v >= 10000000) return '₨ ' + (v/10000000).toFixed(1) + ' Cr';
+  if (v >= 100000)   return '₨ ' + (v/100000).toFixed(1) + ' L';
+  return '₨ ' + v.toLocaleString('en-PK');
+}
+function fmtDate(s) {
+  if (!s) return '—';
+  try { return new Date(s).toLocaleDateString('en-PK', { day:'2-digit', month:'short', year:'numeric' }); } catch { return s; }
+}
+function initials(name) {
+  if (!name) return '?';
+  const parts = name.trim().split(/\s+/);
+  return (parts[0][0] + (parts[1] ? parts[1][0] : '')).toUpperCase();
+}
+function formatCnic(v) {
+  v = v.replace(/\D/g,'');
+  if (v.length > 13) v = v.slice(0,13);
+  if (v.length > 12) v = v.slice(0,5) + '-' + v.slice(5,12) + '-' + v.slice(12);
+  else if (v.length > 5) v = v.slice(0,5) + '-' + v.slice(5);
+  return v;
+}
+
+// ── LOAD CLIENTS ──────────────────────────────────────────
+async function loadClients() {
+  try {
+    _all = await DB.all(`SELECT * FROM clients ORDER BY total_volume_pkr DESC`);
+    renderStats();
+    applyFilters();
+    setTxt('ptbSub', `${_all.length} client${_all.length !== 1 ? 's' : ''} registered`);
+  } catch(e) {
+    console.error('loadClients error:', e);
+    Toast.show('Error loading clients: ' + e.message, 'error');
+  }
+}
+
+// ── STATS ─────────────────────────────────────────────────
+function renderStats() {
+  const total      = _all.length;
+  const verified   = _all.filter(c => c.is_verified).length;
+  const flagged    = _all.filter(c => c.is_flagged).length;
+  const unverified = _all.filter(c => !c.is_verified).length;
+  const vol        = _all.reduce((s,c) => s + (parseFloat(c.total_volume_pkr)||0), 0);
+
+  setTxt('statTotal', total.toLocaleString());
+  setTxt('statVerified', verified.toLocaleString());
+  setTxt('statFlagged', flagged.toLocaleString());
+  setTxt('statUnverified', unverified.toLocaleString());
+  
+  const v = vol;
+  let vs = v >= 10000000 ? (v/10000000).toFixed(1)+'Cr'
+         : v >= 100000   ? (v/100000).toFixed(1)+'L'
+         : v.toLocaleString('en-PK');
+  setTxt('statVolume', vs);
+}
+
+// ── SEARCH + FILTER ───────────────────────────────────────
+function setupSearch() {
+  document.getElementById('searchInput').addEventListener('input', () => { _page = 1; applyFilters(); });
+}
+
+// ── FILTERS ───────────────────────────────────────────────
+function setupFilters() {
+  document.getElementById('statusFilter').addEventListener('change', () => { _page = 1; applyFilters(); });
+
+  const sortBtns = ['sortVolBtn','sortDateBtn','sortNameBtn'];
+  const sortCols = ['total_volume_pkr','created_at','full_name'];
+
+  sortBtns.forEach((id, i) => {
+    document.getElementById(id).addEventListener('click', () => {
+      const col = sortCols[i];
+      if (_sortCol === col) _sortDir = _sortDir === 'asc' ? 'desc' : 'asc';
+      else { _sortCol = col; _sortDir = col === 'full_name' ? 'asc' : 'desc'; }
+      sortBtns.forEach(b => document.getElementById(b).classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+      _page = 1;
+      applyFilters();
+    });
+  });
+}
+
+function applyFilters() {
+  const q      = document.getElementById('searchInput').value.toLowerCase().trim();
+  const status = document.getElementById('statusFilter').value;
+
+  _filtered = _all.filter(c => {
+    if (status === 'verified' && !c.is_verified) return false;
+    if (status === 'flagged'  && !c.is_flagged)  return false;
+    if (status === 'normal'   && (c.is_verified || c.is_flagged)) return false;
+    if (q) {
+      const hay = [c.full_name, c.cnic, c.phone, c.whatsapp, c.bank_name, c.bank_account, c.notes, c.flag_reason]
+        .filter(Boolean).join(' ').toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
+  _filtered.sort((a,b) => {
+    let av = a[_sortCol], bv = b[_sortCol];
+    if (_sortCol === 'full_name') { av = (av||'').toLowerCase(); bv = (bv||'').toLowerCase(); }
+    else { av = parseFloat(av||0); bv = parseFloat(bv||0); }
+    if (av < bv) return _sortDir === 'asc' ? -1 : 1;
+    if (av > bv) return _sortDir === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  const total = _filtered.length;
+  setTxt('filterCount', total === _all.length
+    ? `${total} client${total!==1?'s':''}`
+    : `${total} of ${_all.length} clients`);
+  setTxt('tblHeadTitle', status === 'verified' ? 'Verified Clients'
+    : status === 'flagged' ? '🚩 Flagged Clients' : 'All Clients');
+
+  renderTable();
+  renderPagination();
+}
+
+// ── RENDER TABLE ──────────────────────────────────────────
+function renderTable() {
+  const tbody = document.getElementById('clientTbody');
+  const start = (_page - 1) * PAGE_SIZE;
+  const rows  = _filtered.slice(start, start + PAGE_SIZE);
+
+  if (_filtered.length === 0) {
+    tbody.innerHTML = `
+      <tr><td colspan="10">
+        <div class="empty-wrapper">
+          <div class="empty-ico">👤</div>
+          <div class="empty-h">No Clients Found</div>
+          <div class="empty-p">
+            ${document.getElementById('searchInput').value
+              ? 'No clients match your search. Try different keywords.'
+              : 'Clients are auto-added when transactions include a CNIC, or add one manually.'}
+          </div>
+          <button class="btn-primary" onclick="openAddModal()">＋ Add Client</button>
+        </div>
+      </td></tr>`;
+    return;
+  }
+
+  let rowNum = start + 1;
+  tbody.innerHTML = rows.map(c => {
+    const ini  = initials(c.full_name);
+    const cls  = c.is_flagged ? 'flagged' : c.is_verified ? 'verified' : '';
+    const chip = c.is_flagged
+      ? `<span class="chip chip-flagged">🚩 Flagged</span>`
+      : c.is_verified
+      ? `<span class="chip chip-verified">✅ Verified</span>`
+      : `<span class="chip chip-normal">⚪ Normal</span>`;
+
+    return `<tr onclick="openDrawer(${c.id})" title="View ${escHtml(c.full_name)}">
+      <td style="color:var(--muted);font-size:11px;">${rowNum++}</td>
+      <td>
+        <div class="client-cell">
+          <div class="client-avatar ${cls}">${ini}</div>
+          <div>
+            <div class="client-name-primary">${escHtml(c.full_name)}</div>${c.cnic ? `<div class="client-name-cnic">${escHtml(c.cnic)}</div>` : ''}
+          </div>
+        </div>
+      </td>
+      <td><span class="mono">${escHtml(c.cnic || '—')}</span></td>
+      <td>${escHtml(c.phone || '—')}</td>
+      <td>${escHtml(c.bank_name || '—')}</td>
+      <td>
+        <div class="vol-pkr">${fmtPkrShort(c.total_volume_pkr)}</div>
+        <div class="vol-count">${(c.total_txns||0)} txn${c.total_txns!==1?'s':''}</div>
+      </td>
+      <td style="font-family:var(--font-display);font-weight:700;font-size:14px;color:var(--blue);">${c.total_txns||0}</td>
+      <td style="font-size:12px;color:var(--muted);">${fmtDate(c.last_txn_date || c.updated_at)}</td>
+      <td>${chip}</td>
+      <td>
+        <button class="btn-secondary btn-sm" onclick="event.stopPropagation();openDrawer(${c.id})">View</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// ── PAGINATION ────────────────────────────────────────────
+function renderPagination() {
+  const total = _filtered.length;
+  const pages = Math.ceil(total / PAGE_SIZE);
+  const s = (_page-1)*PAGE_SIZE+1, e = Math.min(_page*PAGE_SIZE, total);
+  setTxt('pgInfo', total===0 ? 'No records' : `Showing ${s}–${e} of ${total}`);
+
+  const btns = document.getElementById('pgBtns');
+  btns.innerHTML = '';
+  if (pages <= 1) return;
+
+  const addBtn = (label, page, active=false, disabled=false) => {
+    const b = document.createElement('button');
+    b.className = 'pg-btn' + (active?' active':'');
+    b.textContent = label; b.disabled = disabled;
+    b.addEventListener('click', () => { _page = page; applyFilters(); window.scrollTo(0,0); });
+    btns.appendChild(b);
+  };
+
+  const makeRange = (cur, tot) => {
+    if (tot <= 7) return Array.from({length:tot},(_,i)=>i+1);
+    const r=[1];
+    if (cur>3) r.push('…');
+    for(let i=Math.max(2,cur-1);i<=Math.min(tot-1,cur+1);i++) r.push(i);
+    if(cur<tot-2) r.push('…');
+    r.push(tot); return r;
+  };
+
+  addBtn('‹', _page-1, false, _page===1);
+  makeRange(_page, pages).forEach(p => {
+    if (p==='…') { const s=document.createElement('span'); s.textContent='…'; s.style.cssText='color:var(--muted);padding:0 4px;font-size:12px;'; btns.appendChild(s); }
+    else addBtn(p, p, p===_page);
+  });
+  addBtn('›', _page+1, false, _page===pages);
+}
+
+// ── DRAWER ────────────────────────────────────────────────
+function setupDrawer() {
+  document.getElementById('drawerClose').addEventListener('click', closeDrawer);
+  document.getElementById('drawerOverlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('drawerOverlay')) closeDrawer();
+  });
+}
+
+async function openDrawer(clientId) {
+  Auth.refreshSession();
+  const c = _all.find(x => x.id === clientId);
+  if (!c) return;
+  _openClient = c;
+
+  const ini = initials(c.full_name);
+  const avatarEl = document.getElementById('dAvatar');
+  avatarEl.textContent = ini;
+  avatarEl.className = 'drawer-avatar' + (c.is_flagged?' flagged':c.is_verified?' verified':'');
+
+  setTxt('dName', c.full_name || '—');
+  setTxt('dCnic', c.cnic ? c.cnic : 'No CNIC on record');
+
+  const badgesEl = document.getElementById('dBadges');
+  badgesEl.innerHTML = (c.is_verified ? `<span class="chip chip-verified">✅ Verified</span>` : '')
+    + (c.is_flagged  ? `<span class="chip chip-flagged">🚩 Flagged</span>` : '');
+
+  setTxt('dpTxns', (c.total_txns||0).toString());
+  setTxt('dpVolume', fmtPkrShort(c.total_volume_pkr));
+  setTxt('dpFirstDate', fmtDate(c.first_txn_date));
+
+  setTxt('dpFullName', c.full_name || '—');
+  setTxt('dpCnic', c.cnic || '—');
+  setTxt('dpPhone', c.phone || '—');
+  setTxt('dpWhatsapp', c.whatsapp || '—');
+
+  setTxt('dpBank', c.bank_name || '—');
+  setTxt('dpAcct', c.bank_last4 ? '****' + c.bank_last4 : '—');
+  setTxt('dpAcctFull', c.bank_account || '—');
+
+  const verEl = document.getElementById('dpVerified');
+  verEl.textContent = c.is_verified ? '✅ Verified' : '⚪ Not Verified';
+  verEl.className = 'd-val' + (c.is_verified ? ' green' : '');
+
+  const flEl = document.getElementById('dpFlagStatus');
+  flEl.textContent = c.is_flagged ? '🚩 Flagged' : '✔ Clear';
+  flEl.className = 'd-val' + (c.is_flagged ? ' red' : ' green');
+
+  setTxt('dpCreated', fmtDate(c.created_at));
+  setTxt('dpUpdated', fmtDate(c.updated_at));
+
+  const flagBox = document.getElementById('dpFlagBox');
+  flagBox.style.display = c.is_flagged && c.flag_reason ? '' : 'none';
+  if (c.is_flagged && c.flag_reason) setTxt('dpFlagReason', c.flag_reason);
+
+  setTxt('dpNotes', c.notes || '—');
+
+  document.getElementById('drawerVerifyBtn').textContent = c.is_verified ? '⚪ Remove Verification' : '✅ Mark Verified';
+  document.getElementById('drawerFlagBtn').textContent   = c.is_flagged  ? '🚩 Remove Flag' : '🚩 Flag Client';
+
+  document.getElementById('drawerVerifyBtn').onclick = () => toggleVerified(c);
+  document.getElementById('drawerFlagBtn').onclick   = () => {
+    if (c.is_flagged) { removeFlagClient(c); } else { openFlagModal(c); }
+  };
+  document.getElementById('drawerEditBtn').onclick = () => { closeDrawer(); openEditModal(c); };
+
+  document.getElementById('drawerTxnsBtn').href =
+    c.cnic ? `transactions.html#search=${encodeURIComponent(c.cnic)}` : 'transactions.html';
+
+  await loadClientTxns(c);
+
+  document.getElementById('drawerOverlay').classList.add('show');
+  AuditLog.add('CLIENT_VIEWED', `Client: ${c.full_name} (ID: ${c.id})`);
+}
+
+async function loadClientTxns(c) {
+  const list = document.getElementById('dpTxnList');
+  list.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:16px;">Loading…</div>';
+  try {
+    let txns = [];
+    if (c.cnic) {
+      txns = await DB.all(`SELECT * FROM transactions WHERE client_cnic=? ORDER BY chain_index DESC LIMIT 5`, [c.cnic]);
+    } else if (c.full_name) {
+      txns = await DB.all(`SELECT * FROM transactions WHERE client_name=? ORDER BY chain_index DESC LIMIT 5`, [c.full_name]);
+    }
+    if (!txns.length) {
+      list.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:20px;">No transactions linked to this client yet.</div>';
+      return;
+    }
+    list.innerHTML = txns.map(t => {
+      const isBuy = t.txn_type === 'buy';
+      return `
+        <a class="mini-txn" href="receipt.html?receipt=${encodeURIComponent(t.receipt_number)}" onclick="event.stopPropagation()">
+          <div class="mini-txn-type ${isBuy?'mtt-buy':'mtt-sell'}">${isBuy?'📥':'📤'}</div>
+          <div class="mini-txn-info">
+            <div class="mti-receipt">${escHtml(t.receipt_number)}</div>
+            <div class="mti-amount">${fmtPkrShort(t.amount_pkr)}</div>
+          </div>
+          <div class="mini-txn-date">${fmtDate(t.timestamp)}</div>
+        </a>`;
+    }).join('');
+  } catch(e) {
+    list.innerHTML = `<div style="color:var(--muted);font-size:13px;text-align:center;padding:16px;">Could not load transactions.</div>`;
+  }
+}
+
+function closeDrawer() {
+  document.getElementById('drawerOverlay').classList.remove('show');
+  _openClient = null;
+}
+
+// ── VERIFY TOGGLE ─────────────────────────────────────────
+async function toggleVerified(c) {
+  const newVal = c.is_verified ? 0 : 1;
+  try {
+    await DB.run(`UPDATE clients SET is_verified=?, updated_at=? WHERE id=?`,
+      [newVal, new Date().toISOString(), c.id]);
+    AuditLog.add(newVal ? 'CLIENT_VERIFIED' : 'CLIENT_UNVERIFIED', `Client: ${c.full_name} (ID: ${c.id})`);
+    Toast.show(newVal ? `✅ ${c.full_name} marked as verified` : `⚪ Verification removed`, newVal ? 'success' : 'info');
+    await loadClients();
+    const updated = _all.find(x => x.id === c.id);
+    if (updated) openDrawer(updated.id);
+  } catch(e) {
+    Toast.show('Error: ' + e.message, 'error');
+  }
+}
+
+// ── FLAG MODAL ────────────────────────────────────────────
+function setupFlagModal() {
+  document.getElementById('flagModalClose').addEventListener('click', closeFlagModal);
+  document.getElementById('flagModalCancel').addEventListener('click', closeFlagModal);
+  document.getElementById('flagModal').addEventListener('click', e => {
+    if (e.target === document.getElementById('flagModal')) closeFlagModal();
+  });
+  document.getElementById('flagModalConfirm').addEventListener('click', confirmFlag);
+}
+
+function openFlagModal(c) {
+  _openClient = c;
+  setTxt('flagModalTitle', `Flag ${c.full_name}`);
+  document.getElementById('flagReasonInput').value = '';
+  document.getElementById('errFlagInput').classList.remove('show');
+  document.getElementById('flagModal').classList.add('show');
+}
+
+function closeFlagModal() {
+  document.getElementById('flagModal').classList.remove('show');
+}
+
+async function confirmFlag() {
+  const reason = document.getElementById('flagReasonInput').value.trim();
+  if (!reason) { document.getElementById('errFlagInput').classList.add('show'); return; }
+  document.getElementById('errFlagInput').classList.remove('show');
+  if (!_openClient) return;
+  const c = _openClient;
+  try {
+    await DB.run(`UPDATE clients SET is_flagged=1, flag_reason=?, updated_at=? WHERE id=?`,
+      [reason, new Date().toISOString(), c.id]);
+    AuditLog.add('CLIENT_FLAGGED', `Client: ${c.full_name} (ID: ${c.id}) | Reason: ${reason}`);
+    Toast.show(`🚩 ${c.full_name} has been flagged`, 'warning');
+    closeFlagModal();
+    await loadClients();
+    const updated = _all.find(x => x.id === c.id);
+    if (updated) openDrawer(updated.id);
+  } catch(e) { Toast.show('Error: ' + e.message, 'error'); }
+}
+
+async function removeFlagClient(c) {
+  try {
+    await DB.run(`UPDATE clients SET is_flagged=0, flag_reason='', updated_at=? WHERE id=?`,
+      [new Date().toISOString(), c.id]);
+    AuditLog.add('CLIENT_FLAG_REMOVED', `Client: ${c.full_name} (ID: ${c.id})`);
+    Toast.show(`Flag removed from ${c.full_name}`, 'success');
+    closeDrawer();
+    await loadClients();
+  } catch(e) { Toast.show('Error: ' + e.message, 'error'); }
+}
+
+// ── ADD / EDIT MODAL ──────────────────────────────────────
+function setupModal() {
+  document.getElementById('btnAddClient').addEventListener('click', openAddModal);
+  document.getElementById('modalClose').addEventListener('click', closeModal);
+  document.getElementById('modalCancelBtn').addEventListener('click', closeModal);
+  document.getElementById('clientModal').addEventListener('click', e => {
+    if (e.target === document.getElementById('clientModal')) closeModal();
+  });
+  document.getElementById('modalSaveBtn').addEventListener('click', saveClient);
+
+  document.getElementById('fCnic').addEventListener('input', function() {
+    this.value = formatCnic(this.value);
+  });
+
+  document.getElementById('fFlagged').addEventListener('change', function() {
+    const grp = document.getElementById('flagReasonGroup');
+    grp.classList.toggle('show', this.checked);
+    if (!this.checked) document.getElementById('errFlagReason').classList.remove('show');
+  });
+}
+
+function openAddModal() {
+  _editMode = false;
+  setTxt('modalTitle', '＋ Add New Client');
+  setTxt('modalSub', 'Enter client KYC details for compliance records');
+  clearModal();
+  document.getElementById('clientModal').classList.add('show');
+}
+
+function openEditModal(c) {
+  _editMode = true;
+  _openClient = c;
+  setTxt('modalTitle', '✏️ Edit Client');
+  setTxt('modalSub', `Editing: ${c.full_name}`);
+  document.getElementById('fName').value       = c.full_name || '';
+  document.getElementById('fCnic').value       = c.cnic || '';
+  document.getElementById('fPhone').value      = c.phone || '';
+  document.getElementById('fWhatsapp').value   = c.whatsapp || '';
+  document.getElementById('fBank').value       = c.bank_name || '';
+  document.getElementById('fBankLast4').value  = c.bank_last4 || '';
+  document.getElementById('fBankFull').value   = c.bank_account || '';
+  document.getElementById('fNotes').value      = c.notes || '';
+  document.getElementById('fVerified').checked = !!c.is_verified;
+  document.getElementById('fFlagged').checked  = !!c.is_flagged;
+  document.getElementById('fFlagReason').value = c.flag_reason || '';
+  const grp = document.getElementById('flagReasonGroup');
+  grp.classList.toggle('show', !!c.is_flagged);
+  document.getElementById('clientModal').classList.add('show');
+}
+
+function clearModal() {
+  ['fName','fCnic','fPhone','fWhatsapp','fBankLast4','fBankFull','fNotes','fFlagReason'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('fBank').value = '';
+  document.getElementById('fVerified').checked = false;
+  document.getElementById('fFlagged').checked  = false;
+  document.getElementById('flagReasonGroup').classList.remove('show');
+  ['errName','errCnic','errFlagReason'].forEach(id => document.getElementById(id).classList.remove('show'));
+}
+
+function closeModal() {
+  document.getElementById('clientModal').classList.remove('show');
+  _openClient = null;
+}
+
+async function saveClient() {
+  const name = document.getElementById('fName').value.trim();
+  const cnic = document.getElementById('fCnic').value.trim();
+  const isFlagged = document.getElementById('fFlagged').checked;
+  const flagReason = document.getElementById('fFlagReason').value.trim();
+  let valid = true;
+
+  if (!name) { document.getElementById('errName').classList.add('show'); valid = false; }
+  else document.getElementById('errName').classList.remove('show');
+
+  if (cnic && !/^\d{5}-\d{7}-\d$/.test(cnic)) {
+    document.getElementById('errCnic').classList.add('show'); valid = false;
+  } else document.getElementById('errCnic').classList.remove('show');
+
+  if (isFlagged && !flagReason) {
+    document.getElementById('errFlagReason').classList.add('show'); valid = false;
+  } else document.getElementById('errFlagReason').classList.remove('show');
+
+  if (!valid) return;
+
+  const saveBtn = document.getElementById('modalSaveBtn');
+  saveBtn.disabled = true; saveBtn.textContent = '⏳ Saving…';
+
+  const now = new Date().toISOString();
+  const data = {
+    full_name    : name,
+    cnic         : cnic || null,
+    phone        : document.getElementById('fPhone').value.trim() || '',
+    whatsapp     : document.getElementById('fWhatsapp').value.trim() || '',
+    bank_name    : document.getElementById('fBank').value || '',
+    bank_last4   : document.getElementById('fBankLast4').value.trim() || '',
+    bank_account : document.getElementById('fBankFull').value.trim() || '',
+    notes        : document.getElementById('fNotes').value.trim() || '',
+    is_verified  : document.getElementById('fVerified').checked ? 1 : 0,
+    is_flagged   : isFlagged ? 1 : 0,
+    flag_reason  : isFlagged ? flagReason : ''
+  };
+
+  try {
+    if (_editMode && _openClient) {
+      await DB.run(
+        `UPDATE clients SET
+           full_name=?, cnic=?, phone=?, whatsapp=?,
+           bank_name=?, bank_last4=?, bank_account=?,
+           notes=?, is_verified=?, is_flagged=?, flag_reason=?, updated_at=?
+         WHERE id=?`,
+        [data.full_name, data.cnic, data.phone, data.whatsapp,
+         data.bank_name, data.bank_last4, data.bank_account,
+         data.notes, data.is_verified, data.is_flagged, data.flag_reason, now,
+         _openClient.id]
+      );
+      AuditLog.add('CLIENT_UPDATED', `Client: ${data.full_name} (ID: ${_openClient.id})`);
+      Toast.show(`✅ ${data.full_name} updated successfully`, 'success');
+    } else {
+      if (data.cnic) {
+        const existing = await DB.get(`SELECT id FROM clients WHERE cnic=?`, [data.cnic]);
+        if (existing) {
+          Toast.show('A client with this CNIC already exists.', 'error');
+          saveBtn.disabled = false; saveBtn.textContent = '💾 Save Client';
+          return;
+        }
+      }
+      await DB.run(
+        `INSERT INTO clients
+           (cnic, full_name, phone, whatsapp, bank_name, bank_last4, bank_account,
+            notes, is_verified, is_flagged, flag_reason,
+            total_txns, total_volume_pkr, created_at, updated_at)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,0,0,?,?)`,
+        [data.cnic, data.full_name, data.phone, data.whatsapp, data.bank_name, data.bank_last4, data.bank_account,
+         data.notes, data.is_verified, data.is_flagged, data.flag_reason,
+         now, now]
+      );
+      AuditLog.add('CLIENT_ADDED_MANUAL', `Client: ${data.full_name}`);
+      Toast.show(`✅ ${data.full_name} added successfully`, 'success');
+    }
+
+    closeModal();
+    await loadClients();
+
+  } catch(e) {
+    Toast.show('Error saving client: ' + e.message, 'error');
+  }
+
+  saveBtn.disabled = false; saveBtn.textContent = '💾 Save Client';
+}
+
+// ── EXPORT CSV ────────────────────────────────────────────
+function setupExport() {
+  document.getElementById('exportCsvBtn').addEventListener('click', exportCsv);
+}
+
+function exportCsv() {
+  if (!_filtered.length) { Toast.show('No clients to export', 'warning'); return; }
+  const headers = ['Name','CNIC','Phone','WhatsApp','Bank','Account Last4','Full Account','Verified','Flagged','Flag Reason','Total Txns','Total Volume PKR','First Txn','Last Txn','Added On','Notes'];
+  const rows = _filtered.map(c => [
+    c.full_name, c.cnic, c.phone, c.whatsapp, c.bank_name, c.bank_last4, c.bank_account,
+    c.is_verified?'Yes':'No', c.is_flagged?'Yes':'No', c.flag_reason,
+    c.total_txns, c.total_volume_pkr,
+    c.first_txn_date, c.last_txn_date, c.created_at, c.notes
+  ].map(v => `"${(v||'').toString().replace(/"/g,'""')}"`));
+
+  const csv = [headers.join(','), ...rows.map(r=>r.join(','))].join('\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  const url  = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `DEMS-clients-${new Date().toISOString().slice(0,10)}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+  AuditLog.add('CLIENTS_EXPORTED_CSV', `${_filtered.length} clients exported`);
+  Toast.show(`⬇ ${_filtered.length} clients exported to CSV`, 'success');
+}
+
+// ── SESSION ───────────────────────────────────────────────
+function setupSession() {
+  function tick() {
+    try {
+      const raw = localStorage.getItem('dems_session');
+      if (!raw) return;
+      const s = JSON.parse(raw);
+      const left = Math.max(0, Math.floor((s.expiresAt - Date.now()) / 1000));
+      const m = Math.floor(left/60), sec = left%60;
+      setTxt('sessionTimer', m + ':' + String(sec).padStart(2,'0'));
+    } catch(e) {}
+  }
+  tick(); setInterval(tick, 1000);
+}
+
+// ── LOGOUT ────────────────────────────────────────────────
+function setupLogout() {
+  document.getElementById('logoutBtn').addEventListener('click', () => {
+    Auth.logout();
+  });
+}
+
+// ── MOBILE NAV ────────────────────────────────────────────
+function setupMobileNav() {
+  const btn = document.getElementById('mobileMenuBtn');
+  const sb  = document.getElementById('sidebar');
+  const ov  = document.getElementById('mobileOverlay');
+  if (!btn) return;
+  btn.addEventListener('click', () => { sb.classList.toggle('open'); ov.classList.toggle('show'); });
+  ov.addEventListener('click', () => { sb.classList.remove('open'); ov.classList.remove('show'); });
+}
+
+// ── TOAST ─────────────────────────────────────────────────
+const Toast = {
+  show(msg, type='info', dur=3500) {
+    const c = document.getElementById('toastContainer');
+    const t = document.createElement('div');
+    const icons = { success:'✅', error:'❌', info:'ℹ️', warning:'⚠️' };
+    t.className = `toast ${type}`;
+    t.innerHTML = `<span>${icons[type]||'ℹ️'}</span><span>${msg}</span>`;
+    c.appendChild(t);
+    setTimeout(()=>{ t.style.opacity='0'; t.style.transition='opacity 0.3s'; setTimeout(()=>t.remove(),300); }, dur);
+  }
+};
+</script>
+</body>
+</html>

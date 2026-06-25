@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy"
+  content="default-src 'self';
+           script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com;
+           style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com;
+           font-src https://fonts.gstatic.com;
+           connect-src 'self' https://worldtimeapi.org;
+           img-src 'self' data: blob:;
+           object-src 'none';
+           base-uri 'self';">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Setup Profile — Digital Exchange MS</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<style>
+  .setup-hero {
+    background: linear-gradient(135deg, #080F1C 0%, #0D1F3C 50%, #080F1C 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 48px 40px 36px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .setup-hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse 60% 60% at 50% 0%, rgba(14,165,233,0.10) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .setup-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(16,185,129,0.12);
+    border: 1px solid rgba(16,185,129,0.3);
+    color: var(--green);
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    padding: 6px 16px;
+    border-radius: 100px;
+    margin-bottom: 20px;
+  }
+  .setup-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: 10px;
+  }
+  .setup-title span { color: var(--blue); }
+  .setup-sub {
+    font-size: 14px;
+    color: var(--muted);
+    max-width: 480px;
+    margin: 0 auto;
+  }
+  /* Steps indicator */
+  .steps-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    max-width: 500px;
+    margin: 32px auto 0;
+  }
+  .step-node {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+  .step-circle {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--navy-3);
+    border: 2px solid var(--border);
+    color: var(--muted);
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s;
+  }
+  .step-circle.active { border-color: var(--blue); color: var(--blue); background: var(--blue-glow); }
+  .step-circle.done { border-color: var(--green); color: var(--green); background: rgba(16,185,129,0.12); }
+  .step-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+  .step-line {
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+    margin: 0 8px;
+    margin-bottom: 20px;
+  }
+  /* Form layout */
+  .setup-container { max-width: 700px; margin: 0 auto; padding: 48px 32px; }
+  .form-section {
+    background: var(--navy-2);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 32px;
+    margin-bottom: 24px;
+    display: none;
+  }
+  .form-section.active { display: block; }
+  .fs-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .fs-sub { font-size: 13px; color: var(--muted); margin-bottom: 28px; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .form-group { margin-bottom: 20px; }
+  .form-label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 8px;
+  }
+  .form-label .required { color: var(--red); }
+  .form-hint { font-size: 11px; color: var(--muted); margin-top: 6px; }
+  /* Logo picker */
+  .logo-picker {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+  }
+  .logo-opt {
+    width: 52px;
+    height: 52px;
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    background: var(--navy-3);
+    cursor: pointer;
+    font-size: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+  }
+  .logo-opt:hover, .logo-opt.selected {
+    border-color: var(--blue);
+    background: var(--blue-glow);
+  }
+  /* PIN setup */
+  .pin-setup-row {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+  .pin-setup-digit {
+    flex: 1;
+    height: 56px;
+    background: var(--navy-3);
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    color: var(--white);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 20px;
+    font-weight: 700;
+    text-align: center;
+    outline: none;
+    transition: border-color 0.2s;
+    -webkit-text-security: disc;
+  }
+  .pin-setup-digit:focus { border-color: var(--blue); }
+  /* Navigation buttons */
+  .form-nav {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    margin-top: 28px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(255,255,255,0.05);
+  }
+  /* Preview */
+  .profile-preview {
+    background: var(--navy-3);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 24px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #7DD3FC;
+    line-height: 1.8;
+  }
+  .preview-label { color: var(--muted); }
+  .preview-value { color: var(--white); }
+  .preview-secp { color: var(--green); }
+</style>
+</head>
+<body>
+
+<!-- Hero -->
+<div class="setup-hero">
+  <div class="setup-badge">⬡ First Time Setup</div>
+  <div class="setup-title">Setup Your <span>Business Profile</span></div>
+  <div class="setup-sub">Yeh information har receipt pe print hogi. Sirf ek baar setup karna hai.</div>
+
+  <!-- Steps -->
+  <div class="steps-bar">
+    <div class="step-node">
+      <div class="step-circle active" id="s1">1</div>
+      <div class="step-label">Business</div>
+    </div>
+    <div class="step-line"></div>
+    <div class="step-node">
+      <div class="step-circle" id="s2">2</div>
+      <div class="step-label">Legal</div>
+    </div>
+    <div class="step-line"></div>
+    <div class="step-node">
+      <div class="step-circle" id="s3">3</div>
+      <div class="step-label">Security</div>
+    </div>
+    <div class="step-line"></div>
+    <div class="step-node">
+      <div class="step-circle" id="s4">4</div>
+      <div class="step-label">Review</div>
+    </div>
+  </div>
+</div>
+
+<div class="setup-container">
+
+  <!-- STEP 1: Business Info -->
+  <div class="form-section active" id="step-1">
+    <div class="fs-title">🏢 Business Information</div>
+    <div class="fs-sub">Apne exchange business ki basic details enter karein jo receipts pe print hongi.</div>
+
+    <div class="form-group">
+      <label class="form-label">Business Logo <span style="color:var(--muted); font-weight:400;">(icon choose karein)</span></label>
+      <div class="logo-picker">
+        <div class="logo-opt selected" data-emoji="⬡" onclick="selectLogo(this)">⬡</div>
+        <div class="logo-opt" data-emoji="💱" onclick="selectLogo(this)">💱</div>
+        <div class="logo-opt" data-emoji="🏦" onclick="selectLogo(this)">🏦</div>
+        <div class="logo-opt" data-emoji="💰" onclick="selectLogo(this)">💰</div>
+        <div class="logo-opt" data-emoji="📊" onclick="selectLogo(this)">📊</div>
+        <div class="logo-opt" data-emoji="🔐" onclick="selectLogo(this)">🔐</div>
+        <div class="logo-opt" data-emoji="⚡" onclick="selectLogo(this)">⚡</div>
+        <div class="logo-opt" data-emoji="🌐" onclick="selectLogo(this)">🌐</div>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Business Name <span class="required">*</span></label>
+      <input type="text" id="biz-name" class="form-input" placeholder="e.g. Al-Falah Exchange Services" maxlength="60">
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">City <span class="required">*</span></label>
+        <input type="text" id="biz-city" class="form-input" placeholder="e.g. Karachi">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Area / Locality</label>
+        <input type="text" id="biz-area" class="form-input" placeholder="e.g. Saddar, Defence">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Full Address <span class="required">*</span></label>
+      <textarea id="biz-address" class="form-input" rows="2" placeholder="Shop / Office number, street, area, city"></textarea>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Phone Number <span class="required">*</span></label>
+        <input type="tel" id="biz-phone" class="form-input" placeholder="0300-0000000">
+      </div>
+      <div class="form-group">
+        <label class="form-label">WhatsApp Number</label>
+        <input type="tel" id="biz-whatsapp" class="form-input" placeholder="0300-0000000">
+      </div>
+    </div>
+
+    <div class="form-nav">
+      <button class="btn-primary" onclick="goStep(2)">Next: Legal Details →</button>
+    </div>
+  </div>
+
+  <!-- STEP 2: Legal Info -->
+  <div class="form-section" id="step-2">
+    <div class="fs-title">📋 Legal & Registration</div>
+    <div class="fs-sub">SECP aur tax registration numbers — receipts pe print honge aur compliance ke liye zaroori hain.</div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">SECP Registration # <span class="required">*</span></label>
+        <input type="text" id="biz-secp" class="form-input" placeholder="SC-XXXXX">
+        <div class="form-hint">Securities & Exchange Commission of Pakistan number</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">NTN Number</label>
+        <input type="text" id="biz-ntn" class="form-input" placeholder="XXXXXXX-X">
+        <div class="form-hint">National Tax Number (FBR)</div>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Business Type</label>
+        <select id="biz-type" class="form-input">
+          <option value="exchange">Currency Exchange</option>
+          <option value="money_transfer">Money Transfer</option>
+          <option value="crypto_exchange">Crypto Exchange</option>
+          <option value="forex">Forex Trading</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Established Year</label>
+        <input type="number" id="biz-year" class="form-input" placeholder="e.g. 2020" min="2000" max="2030">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Receipt Footer Text</label>
+      <input type="text" id="biz-footer" class="form-input" placeholder="e.g. Thank you for your business. All transactions are final." maxlength="120">
+      <div class="form-hint">Yeh text har receipt ke bottom pe print hoga</div>
+    </div>
+
+    <div class="form-nav">
+      <button class="btn-secondary" onclick="goStep(1)">← Back</button>
+      <button class="btn-primary" onclick="goStep(3)">Next: Security Setup →</button>
+    </div>
+  </div>
+
+  <!-- STEP 3: PIN / Security -->
+  <div class="form-section" id="step-3">
+    <div class="fs-title">🔐 Security Setup</div>
+    <div class="fs-sub">Apna login PIN set karein. Galat 5 attempts ke baad account lock ho jaega.</div>
+
+    <div class="form-group">
+      <label class="form-label">Choose 4-Digit PIN <span class="required">*</span></label>
+      <div class="pin-setup-row">
+        <input type="tel" class="pin-setup-digit" id="pin-d0" maxlength="1" oninput="pinNext(this,1)" onkeydown="pinBackspace(event,'pin',null)">
+        <input type="tel" class="pin-setup-digit" id="pin-d1" maxlength="1" oninput="pinNext(this,2)" onkeydown="pinBackspace(event,'pin',0)">
+        <input type="tel" class="pin-setup-digit" id="pin-d2" maxlength="1" oninput="pinNext(this,3)" onkeydown="pinBackspace(event,'pin',1)">
+        <input type="tel" class="pin-setup-digit" id="pin-d3" maxlength="1" oninput="pinNext(this,null)" onkeydown="pinBackspace(event,'pin',2)">
+      </div>
+      <div class="form-hint">PIN sirf numbers — 0000 ya 1234 mat rakho</div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Confirm PIN <span class="required">*</span></label>
+      <div class="pin-setup-row">
+        <input type="tel" class="pin-setup-digit" id="cpin-d0" maxlength="1" oninput="cpinNext(this,1)" onkeydown="pinBackspace(event,'cpin',null)">
+        <input type="tel" class="pin-setup-digit" id="cpin-d1" maxlength="1" oninput="cpinNext(this,2)" onkeydown="pinBackspace(event,'cpin',0)">
+        <input type="tel" class="pin-setup-digit" id="cpin-d2" maxlength="1" oninput="cpinNext(this,3)" onkeydown="pinBackspace(event,'cpin',1)">
+        <input type="tel" class="pin-setup-digit" id="cpin-d3" maxlength="1" oninput="cpinNext(this,null)" onkeydown="pinBackspace(event,'cpin',2)">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Backup Password (optional)</label>
+      <input type="password" id="backup-pw" class="form-input" placeholder="At least 8 characters" autocomplete="new-password">
+      <div class="form-hint">PIN bhool jayen toh is password se login ho sakein ge</div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Session Timeout</label>
+      <select id="session-timeout" class="form-input">
+        <option value="15">15 minutes</option>
+        <option value="30" selected>30 minutes</option>
+        <option value="60">1 hour</option>
+        <option value="120">2 hours</option>
+        <option value="480">8 hours (full day)</option>
+      </select>
+      <div class="form-hint">Is time ke baad automatically logout ho jaega</div>
+    </div>
+
+    <div class="form-nav">
+      <button class="btn-secondary" onclick="goStep(2)">← Back</button>
+      <button class="btn-primary" onclick="goStep(4)">Next: Review →</button>
+    </div>
+  </div>
+
+  <!-- STEP 4: Review & Save -->
+  <div class="form-section" id="step-4">
+    <div class="fs-title">✅ Review & Confirm</div>
+    <div class="fs-sub">Sab kuch check karein. Save karne ke baad profile/credentials register ho jaen ge.</div>
+
+    <div class="profile-preview" id="preview-box">
+      <!-- filled by JS -->
+    </div>
+
+    <div id="setup-error" class="login-error" style="display:none; margin-top:16px;"></div>
+
+    <div class="form-nav">
+      <button class="btn-secondary" onclick="goStep(3)">← Back</button>
+      <button class="btn-primary" id="save-btn" onclick="saveProfile()">💾 Save & Launch System</button>
+    </div>
+  </div>
+
+</div>
+
+<script src="db.js"></script>
+<script src="auth.js"></script>
+<script src="profile.js"></script>
+<script src="audit-log.js"></script>
+<script>
+  let selectedLogo = '⬡';
+
+  window.addEventListener('DOMContentLoaded', async () => {
+    await DB.init();
+    // If profile already exists, redirect
+    const existing = await Profile.get();
+    if (existing) window.location.href = 'login.html';
+  });
+
+  function selectLogo(el) {
+    document.querySelectorAll('.logo-opt').forEach(o => o.classList.remove('selected'));
+    el.classList.add('selected');
+    selectedLogo = el.dataset.emoji;
+  }
+
+  function goStep(n) {
+    if (n > 1 && !validateStep(n - 1)) return;
+    document.querySelectorAll('.form-section').forEach(s => s.classList.remove('active'));
+    document.getElementById('step-' + n).classList.add('active');
+    // Update step circles
+    for (let i = 1; i <= 4; i++) {
+      const c = document.getElementById('s' + i);
+      c.className = 'step-circle';
+      if (i < n) c.classList.add('done');
+      else if (i === n) c.classList.add('active');
+    }
+    if (n === 4) buildPreview();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function validateStep(n) {
+    if (n === 1) {
+      if (!document.getElementById('biz-name').value.trim()) { alert('Business name zaroori hai'); return false; }
+      if (!document.getElementById('biz-city').value.trim()) { alert('City zaroori hai'); return false; }
+      if (!document.getElementById('biz-address').value.trim()) { alert('Address zaroori hai'); return false; }
+      if (!document.getElementById('biz-phone').value.trim()) { alert('Phone number zaroori hai'); return false; }
+    }
+    if (n === 2) {
+      if (!document.getElementById('biz-secp').value.trim()) { alert('SECP number zaroori hai'); return false; }
+    }
+    if (n === 3) {
+      const pin = getPIN('pin');
+      const cpin = getPIN('cpin');
+      if (pin.length !== 4) { alert('4-digit PIN set karein'); return false; }
+      if (pin !== cpin) { alert('PIN match nahi kar raha — dobara enter karein'); return false; }
+      if (pin === '0000' || pin === '1234' || pin === '1111') { alert('Yeh PIN unsafe hai, koi aur choose karein'); return false; }
+    }
+    return true;
+  }
+
+  function getPIN(prefix) {
+    return ['d0','d1','d2','d3'].map(d => document.getElementById(prefix + '-' + d).value).join('');
+  }
+
+  function pinNext(el, next) {
+    if (el.value && next !== null) document.getElementById('pin-d' + next).focus();
+  }
+  function cpinNext(el, next) {
+    if (el.value && next !== null) document.getElementById('cpin-d' + next).focus();
+  }
+  function pinBackspace(event, prefix, prevIndex) {
+    if (event.key === 'Backspace' && !event.target.value && prevIndex !== null) {
+      document.getElementById(prefix + '-d' + prevIndex).focus();
+    }
+  }
+
+  function escapeHtml(s) {
+    if (s === null || s === undefined) return '';
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function buildPreview() {
+    const name   = escapeHtml(document.getElementById('biz-name').value);
+    const city   = escapeHtml(document.getElementById('biz-city').value);
+    const area   = escapeHtml(document.getElementById('biz-area').value);
+    const addr   = escapeHtml(document.getElementById('biz-address').value);
+    const phone  = escapeHtml(document.getElementById('biz-phone').value);
+    const wa     = escapeHtml(document.getElementById('biz-whatsapp').value);
+    const secp   = escapeHtml(document.getElementById('biz-secp').value);
+    const ntn    = escapeHtml(document.getElementById('biz-ntn').value);
+    const footer = escapeHtml(document.getElementById('biz-footer').value);
+    const timeout = document.getElementById('session-timeout').value;
+
+    document.getElementById('preview-box').innerHTML = `
+<span style="color:var(--gold); font-weight:500;">━━━ PROFILE PREVIEW ━━━</span><br><br>
+${selectedLogo}  <span style="color:var(--white); font-weight:600;">${name}</span><br>
+<span class="preview-label">Address   : </span><span class="preview-value">${addr}, ${area} ${city}</span><br>
+<span class="preview-label">Phone     : </span><span class="preview-value">${phone}${wa ? ' | WA: ' + wa : ''}</span><br>
+<span class="preview-label">SECP Reg  : </span><span class="preview-secp">${secp}</span><br>
+${ntn ? `<span class="preview-label">NTN       : </span><span class="preview-value">${ntn}</span><br>` : ''}
+${footer ? `<span class="preview-label">Footer    : </span><span class="preview-value">${footer}</span><br>` : ''}
+<span class="preview-label">Timeout   : </span><span class="preview-value">${timeout} minutes</span><br>
+<span class="preview-label">PIN       : </span><span class="preview-secp">✓ Set</span><br>
+<span class="preview-label">System    : </span><span class="preview-secp">Ready to launch ✓</span>
+    `;
+  }
+
+  async function saveProfile() {
+    const btn = document.getElementById('save-btn');
+    btn.textContent = 'Saving…';
+    btn.disabled = true;
+
+    const profileData = {
+      logoEmoji    : selectedLogo,
+      businessName : document.getElementById('biz-name').value.trim(),
+      city         : document.getElementById('biz-city').value.trim(),
+      area         : document.getElementById('biz-area').value.trim(),
+      address      : document.getElementById('biz-address').value.trim(),
+      phone        : document.getElementById('biz-phone').value.trim(),
+      whatsapp     : document.getElementById('biz-whatsapp').value.trim(),
+      secpNumber   : document.getElementById('biz-secp').value.trim(),
+      ntnNumber    : document.getElementById('biz-ntn').value.trim(),
+      businessType : document.getElementById('biz-type').value,
+      estYear      : document.getElementById('biz-year').value,
+      receiptFooter: document.getElementById('biz-footer').value.trim(),
+      sessionTimeout: parseInt(document.getElementById('session-timeout').value),
+      setupDate    : new Date().toISOString()
+    };
+
+    const pin = getPIN('pin');
+    const backupPw = document.getElementById('backup-pw').value;
+
+    try {
+      await Profile.save(profileData);
+      await Auth.setupCredentials(pin, backupPw);
+      AuditLog.add('PROFILE_SETUP', 'Initial profile created: ' + profileData.businessName);
+      await Auth.login(pin, 'pin');
+      window.location.href = 'dashboard.html';
+    } catch (e) {
+      document.getElementById('setup-error').textContent = 'Error: ' + e.message;
+      document.getElementById('setup-error').style.display = 'block';
+      btn.textContent = '💾 Save & Launch System';
+      btn.disabled = false;
+    }
+  }
+</script>
+</body>
+</html>

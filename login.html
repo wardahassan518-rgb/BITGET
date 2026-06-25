@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy"
+  content="default-src 'self';
+           script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com;
+           style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com;
+           font-src https://fonts.gstatic.com;
+           connect-src 'self' https://worldtimeapi.org;
+           img-src 'self' data: blob:;
+           object-src 'none';
+           base-uri 'self';">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Login — Digital Exchange MS</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<style>
+  .login-wrap {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--navy);
+    padding: 24px;
+  }
+  .login-box {
+    background: var(--navy-2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 48px 40px;
+    width: 100%;
+    max-width: 420px;
+    position: relative;
+    overflow: hidden;
+  }
+  .login-box::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--blue), var(--gold));
+  }
+  .login-logo {
+    text-align: center;
+    margin-bottom: 32px;
+  }
+  .login-hex {
+    font-size: 40px;
+    color: var(--blue);
+    display: block;
+    margin-bottom: 10px;
+  }
+  .login-biz-name {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--white);
+    display: block;
+  }
+  .login-secp {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    display: block;
+    margin-top: 4px;
+  }
+  .login-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    text-align: center;
+  }
+  .login-sub {
+    font-size: 13px;
+    color: var(--muted);
+    text-align: center;
+    margin-bottom: 32px;
+  }
+  /* PIN Keypad */
+  .pin-display {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+  .pin-dot {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    background: transparent;
+    transition: all 0.2s;
+  }
+  .pin-dot.filled {
+    background: var(--blue);
+    border-color: var(--blue);
+    box-shadow: 0 0 8px rgba(14,165,233,0.5);
+  }
+  .pin-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  .pin-key {
+    background: var(--navy-3);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--white);
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.15s;
+    user-select: none;
+  }
+  .pin-key:hover { background: rgba(14,165,233,0.1); border-color: var(--blue); }
+  .pin-key:active { transform: scale(0.95); }
+  .pin-key.key-del {
+    font-size: 16px;
+    color: var(--muted);
+  }
+  .pin-key.key-enter {
+    background: var(--blue);
+    border-color: var(--blue);
+    color: #fff;
+    font-size: 14px;
+  }
+  .pin-key.key-enter:hover { background: #0891b2; }
+  /* Attempts bar */
+  .attempts-bar {
+    text-align: center;
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 16px;
+  }
+  .attempts-bar span { color: var(--red); font-weight: 600; }
+  /* Error */
+  .login-error {
+    background: rgba(239,68,68,0.1);
+    border: 1px solid rgba(239,68,68,0.3);
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-size: 13px;
+    color: #FCA5A5;
+    text-align: center;
+    margin-bottom: 16px;
+    display: none;
+  }
+  /* Lockout */
+  .lockout-screen {
+    text-align: center;
+    padding: 20px 0;
+  }
+  .lockout-icon { font-size: 48px; margin-bottom: 16px; }
+  .lockout-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--red);
+    margin-bottom: 8px;
+  }
+  .lockout-msg {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 24px;
+    line-height: 1.6;
+  }
+  .lockout-timer {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 32px;
+    color: var(--red);
+    font-weight: 700;
+  }
+  /* Password mode toggle */
+  .mode-toggle {
+    text-align: center;
+    margin-top: 16px;
+  }
+  .mode-btn {
+    background: none;
+    border: none;
+    color: var(--blue);
+    font-size: 13px;
+    cursor: pointer;
+    text-decoration: underline;
+    font-family: 'Inter', sans-serif;
+  }
+</style>
+</head>
+<body>
+<div class="login-wrap">
+  <div class="login-box">
+
+    <!-- Business Logo Area -->
+    <div class="login-logo">
+      <span class="login-hex" id="biz-logo">⬡</span>
+      <span class="login-biz-name" id="biz-name">Loading…</span>
+      <span class="login-secp" id="biz-secp"></span>
+    </div>
+
+    <!-- Normal Login View -->
+    <div id="login-view">
+      <div class="login-title">Secure Login</div>
+      <div class="login-sub">Enter your 4-digit PIN</div>
+
+      <!-- Error Message -->
+      <div class="login-error" id="login-error"></div>
+
+      <!-- PIN Dots -->
+      <div class="pin-display">
+        <div class="pin-dot" id="d0"></div>
+        <div class="pin-dot" id="d1"></div>
+        <div class="pin-dot" id="d2"></div>
+        <div class="pin-dot" id="d3"></div>
+      </div>
+
+      <!-- Attempts remaining -->
+      <div class="attempts-bar" id="attempts-bar"></div>
+
+      <!-- Keypad -->
+      <div class="pin-grid">
+        <div class="pin-key" role="button" tabindex="0" aria-label="Press 1" onkeydown="if(event.key==='Enter'||event.key===' '){this.click();event.preventDefault();}" onclick="pinPress('1')">1</div>
+        <div class="pin-key" role="button" tabindex="0" aria-label="Press 2" onkeydown="if(event.key==='Enter'||event.key===' '){this.click();event.preventDefault();}" onclick="pinPress('2')">2</div>
+        <div class="pin-key" role="button" tabindex="0" aria-label="Press 3" onkeydown="if(event.key==='Enter'||event.key===' '){this.click();event.preventDefault();}" onclick="pinPress('3')">3</div>
+        <div class="pin-key" role="button" tabindex="0" aria-label="Press 4" onkeydown="if(event.key==='Enter'||event.key===' '){this.click();event.preventDefault();}" onclick="pinPress('4')">4</div>
+        <div class="pin-key" role="button" tabindex="0" aria-label="Press 5" onkeydown="if(event.key==='Enter'||event.key===' '){this.click();event.preventDefault();}" onclick="pinPress('5')">5</div>
+        <div class="pin-key" role="button" tabindex="0" aria-label="Press 6" onkeydown="if(event.key==='Enter'||event.key===' '){this.click();event.preventDefault();}" onclick="pinPress('6')">6</div>
+        <div class="pin-key" role="button" tabindex="0" aria-label="Press 7" onkeydown="if(event.key==='Enter'||event.key===' '){this.click();event.preventDefault();}" onclick="pinPress('7')">7</div>
+        <div class="pin-key" role="button" tabindex="0" aria-label="Press 8" onkeydown="if(event.key==='Enter'||event.key===' '){this.click();event.preventDefault();}" onclick="pinPress('8')">8</div>
+        <div class="pin-key" role="button" tabindex="0" aria-label="Press 9" onkeydown="if(event.key==='Enter'||event.key===' '){this.click();event.preventDefault();}" onclick="pinPress('9')">9</div>
+        <div class="pin-key key-del" role="button" tabindex="0" aria-label="Delete last digit" onkeydown="if(event.key==='Enter'||event.key===' '){this.click();event.preventDefault();}" onclick="pinDel()">⌫ Del</div>
+        <div class="pin-key" role="button" tabindex="0" aria-label="Press 0" onkeydown="if(event.key==='Enter'||event.key===' '){this.click();event.preventDefault();}" onclick="pinPress('0')">0</div>
+        <div class="pin-key key-enter" role="button" tabindex="0" aria-label="Submit PIN" onkeydown="if(event.key==='Enter'||event.key===' '){this.click();event.preventDefault();}" onclick="pinSubmit()">Login ↵</div>
+      </div>
+
+      <div class="mode-toggle">
+        <button class="mode-btn" onclick="switchToPassword()">Use password instead</button>
+      </div>
+    </div>
+
+    <!-- Password View (hidden by default) -->
+    <div id="password-view" style="display:none;">
+      <div class="login-title">Secure Login</div>
+      <div class="login-sub">Enter your password</div>
+      <div class="login-error" id="pw-error"></div>
+      <div style="margin-bottom:20px;">
+        <input type="password" id="pw-input" class="form-input" placeholder="Enter password" autocomplete="current-password">
+      </div>
+      <button class="btn-primary" onclick="passwordSubmit()" style="width:100%;">Login →</button>
+      <div class="mode-toggle" style="margin-top:16px;">
+        <button class="mode-btn" onclick="switchToPin()">Use PIN instead</button>
+      </div>
+    </div>
+
+    <!-- Lockout View (hidden) -->
+    <div id="lockout-view" style="display:none;">
+      <div class="lockout-screen">
+        <div class="lockout-icon">🔒</div>
+        <div class="lockout-title">Account Locked</div>
+        <div class="lockout-msg">5 galat attempts ke baad account temporarily lock ho gaya hai.</div>
+        <div class="lockout-timer" id="lockout-timer">05:00</div>
+        <div class="lockout-msg" style="margin-top:12px;">Countdown ke baad login dobara try karein.</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="db.js"></script>
+<script src="auth.js"></script>
+<script src="profile.js"></script>
+<script src="audit-log.js"></script>
+<script>
+  let pin = '';
+
+  window.addEventListener('DOMContentLoaded', async () => {
+    await DB.init();
+    const profile = await Profile.get();
+    if (profile) {
+      document.getElementById('biz-name').textContent = profile.businessName || 'Exchange System';
+      document.getElementById('biz-secp').textContent = profile.secpNumber ? 'SECP: ' + profile.secpNumber : '';
+      if (profile.logoEmoji) document.getElementById('biz-logo').textContent = profile.logoEmoji;
+    }
+    await checkLockout();
+  });
+
+  async function checkLockout() {
+    const state = await Auth.getLockoutState();
+    if (state.locked) {
+      showLockout(state.until - Date.now());
+    } else {
+      updateAttemptsBar(state.failedCount);
+    }
+  }
+
+  function showLockout(msRemaining) {
+    document.getElementById('login-view').style.display = 'none';
+    document.getElementById('password-view').style.display = 'none';
+    document.getElementById('lockout-view').style.display = 'block';
+    const tick = () => {
+      if (msRemaining <= 0) {
+        Auth.clearLockout().then(() => location.reload());
+        return;
+      }
+      const mins = Math.floor(msRemaining / 60000);
+      const secs = Math.floor((msRemaining % 60000) / 1000);
+      document.getElementById('lockout-timer').textContent =
+        String(mins).padStart(2,'0') + ':' + String(secs).padStart(2,'0');
+      msRemaining -= 1000;
+      setTimeout(tick, 1000);
+    };
+    tick();
+  }
+
+  function updateAttemptsBar(failedCount = 0) {
+    const MAX_ATTEMPTS = 5;
+    const remaining = MAX_ATTEMPTS - failedCount;
+    const bar = document.getElementById('attempts-bar');
+    if (failedCount > 0) {
+      bar.innerHTML = `Remaining attempts: <span>${remaining}</span> / ${MAX_ATTEMPTS}`;
+    } else {
+      bar.innerHTML = '';
+    }
+  }
+
+  function pinPress(digit) {
+    if (pin.length >= 4) return;
+    pin += digit;
+    updateDots();
+  }
+
+  function pinDel() {
+    pin = pin.slice(0, -1);
+    updateDots();
+  }
+
+  function updateDots() {
+    for (let i = 0; i < 4; i++) {
+      document.getElementById('d' + i).classList.toggle('filled', i < pin.length);
+    }
+  }
+
+  async function pinSubmit() {
+    if (pin.length < 4) {
+      showError('login-error', '4 digits enter karein');
+      return;
+    }
+    await attemptLogin(pin, 'pin');
+    pin = '';
+    updateDots();
+  }
+
+  async function passwordSubmit() {
+    const pw = document.getElementById('pw-input').value.trim();
+    if (!pw) { showError('pw-error', 'Password enter karein'); return; }
+    await attemptLogin(pw, 'password');
+    document.getElementById('pw-input').value = '';
+  }
+
+  async function attemptLogin(credential, type) {
+    // Check lockout before attempting
+    const lockState = await Auth.getLockoutState();
+    if (lockState.locked) {
+      showLockout(lockState.until - Date.now());
+      return;
+    }
+
+    const result = await Auth.login(credential, type);
+    if (result.success) {
+      AuditLog.add('LOGIN_SUCCESS', 'User logged in via ' + type);
+      window.location.href = 'dashboard.html';
+    } else {
+      const state = await Auth.recordFailedAttempt();
+      AuditLog.add('LOGIN_FAILED', 'Failed attempt #' + state.failedCount + ' via ' + type);
+      if (state.locked) {
+        showLockout(new Date(state.lockoutUntil).getTime() - Date.now());
+      } else {
+        const MAX_ATTEMPTS = 5;
+        const remaining = MAX_ATTEMPTS - state.failedCount;
+        const errId = type === 'pin' ? 'login-error' : 'pw-error';
+        showError(errId, 'Galat ' + (type === 'pin' ? 'PIN' : 'password') + ' — ' + remaining + ' attempts bachi hain');
+        updateAttemptsBar(state.failedCount);
+      }
+    }
+  }
+
+  function showError(id, msg) {
+    const el = document.getElementById(id);
+    el.textContent = msg;
+    el.style.display = 'block';
+    setTimeout(() => el.style.display = 'none', 3000);
+  }
+
+  function switchToPassword() {
+    document.getElementById('login-view').style.display = 'none';
+    document.getElementById('password-view').style.display = 'block';
+  }
+
+  function switchToPin() {
+    document.getElementById('password-view').style.display = 'none';
+    document.getElementById('login-view').style.display = 'block';
+  }
+</script>
+</body>
+</html>

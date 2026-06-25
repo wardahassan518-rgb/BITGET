@@ -1,0 +1,1221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy"
+  content="default-src 'self';
+           script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com;
+           style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com;
+           font-src https://fonts.gstatic.com;
+           connect-src 'self' https://worldtimeapi.org;
+           img-src 'self' data: blob:;
+           object-src 'none';
+           base-uri 'self';">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard — DEMS</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" integrity="sha512-ZnR2AmqHD/KFi6iAkumQpAq7lmVK5TFqxj5XXDKy6MBIiNpEi/RNjSuCmXQYiLgKHfHtUFV7dXvYjvGq4mfA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<style>
+/* ── LAYOUT ─────────────────────────────────────────────── */
+.app-shell { display: flex; min-height: 100vh; }
+
+.sidebar {
+  width: 220px; flex-shrink: 0;
+  background: var(--navy-2);
+  border-right: 1px solid var(--border);
+  padding: 24px 12px;
+  position: fixed; top: 0; left: 0; height: 100vh;
+  overflow-y: auto; z-index: 100;
+  display: flex; flex-direction: column;
+  transition: left 0.25s;
+}
+.sidebar-brand {
+  display: flex; align-items: center; gap: 10px;
+  padding: 0 8px 20px; border-bottom: 1px solid var(--border); margin-bottom: 20px;
+}
+.sb-logo { font-size: 22px; color: var(--blue); }
+.sb-name { font-family: var(--font-display); font-size: 15px; font-weight: 700; color: var(--white); line-height: 1.1; }
+.sb-name small { display: block; color: var(--muted); font-size: 10px; font-weight: 400; }
+.nav-group-label {
+  font-size: 10px; font-weight: 600; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.1em;
+  padding: 0 8px; margin: 16px 0 6px;
+}
+.nav-item {
+  display: flex; align-items: center; gap: 9px;
+  padding: 9px 10px; border-radius: var(--radius-sm);
+  font-size: 13px; font-weight: 500; color: var(--muted);
+  text-decoration: none; transition: all 0.15s; margin-bottom: 2px;
+  background: none; border: none; cursor: pointer; width: 100%; text-align: left;
+}
+.nav-item:hover { background: var(--blue-glow); color: var(--white); text-decoration: none; }
+.nav-item.active { background: var(--blue-glow); color: var(--blue); border: 1px solid rgba(14,165,233,0.2); }
+.nav-icon { font-size: 15px; width: 18px; text-align: center; flex-shrink: 0; }
+.sidebar-footer { margin-top: auto; padding-top: 16px; border-top: 1px solid var(--border); }
+.session-pill { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); padding: 6px 10px; margin-bottom: 4px; }
+.session-pill span { color: var(--gold); font-family: var(--font-mono); }
+
+.main-area { margin-left: 220px; flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+
+/* ── TOPBAR ─────────────────────────────────────────────── */
+.page-topbar {
+  position: sticky; top: 0; z-index: 50;
+  background: rgba(8,15,28,0.92); backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--border);
+  padding: 0 32px; height: 60px;
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+}
+.ptb-left { display: flex; align-items: center; gap: 14px; }
+.ptb-title { font-family: var(--font-display); font-size: 17px; font-weight: 700; }
+.ptb-sub { font-size: 12px; color: var(--muted); }
+.ptb-right { display: flex; align-items: center; gap: 10px; }
+.chain-pill {
+  display: flex; align-items: center; gap: 7px;
+  background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.25);
+  color: var(--green); font-size: 11px; font-weight: 600;
+  padding: 5px 12px; border-radius: var(--radius-pill);
+  font-family: var(--font-mono);
+}
+.chain-dot { width: 6px; height: 6px; background: var(--green); border-radius: 50%; animation: blink 2s ease-in-out infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+.mobile-menu-btn { display: none; background: none; border: none; color: var(--white); font-size: 20px; cursor: pointer; padding: 4px 8px; }
+
+/* ── PAGE BODY ──────────────────────────────────────────── */
+.page-body { padding: 28px 32px 48px; flex: 1; }
+
+/* ── PERIOD SELECTOR ────────────────────────────────────── */
+.page-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 28px; flex-wrap: wrap; gap: 14px; }
+.page-header-left .eyebrow { font-size: 10px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--blue); margin-bottom: 5px; }
+.page-header-left h2 { font-family: var(--font-display); font-size: 22px; font-weight: 700; color: var(--white); letter-spacing: -0.01em; }
+.page-header-left .last-update { font-size: 11px; color: var(--muted); margin-top: 4px; font-family: var(--font-mono); }
+.period-tabs { display: flex; gap: 3px; background: var(--navy-2); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 4px; }
+.period-btn {
+  padding: 7px 16px; border-radius: var(--radius-sm);
+  font-size: 12px; font-weight: 600; cursor: pointer;
+  background: none; border: none; color: var(--muted);
+  transition: all 0.15s; font-family: var(--font-display);
+}
+.period-btn:hover { color: var(--white); }
+.period-btn.active { background: var(--blue); color: #fff; }
+
+/* ── KPI CARDS ──────────────────────────────────────────── */
+.kpi-grid { display: grid; grid-template-columns: repeat(5,1fr); gap: 14px; margin-bottom: 24px; }
+.kpi-card {
+  background: var(--navy-2); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 20px 22px;
+  position: relative; overflow: hidden;
+  transition: border-color 0.2s, transform 0.2s;
+  cursor: default;
+}
+.kpi-card:hover { border-color: rgba(14,165,233,0.3); transform: translateY(-2px); }
+.kpi-card::after { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; }
+.kpi-card.c-blue::after  { background: var(--blue); }
+.kpi-card.c-green::after { background: var(--green); }
+.kpi-card.c-gold::after  { background: var(--gold); }
+.kpi-card.c-purple::after{ background: var(--purple); }
+.kpi-card.c-teal::after  { background: #2DD4BF; }
+
+.kpi-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 14px; }
+.kpi-icon { font-size: 20px; opacity: 0.85; }
+.kpi-delta {
+  font-size: 11px; font-weight: 600; padding: 3px 8px;
+  border-radius: var(--radius-pill); display: flex; align-items: center; gap: 3px;
+}
+.kpi-delta.up   { background: rgba(16,185,129,0.12); color: var(--green); }
+.kpi-delta.down { background: rgba(239,68,68,0.10); color: #FCA5A5; }
+.kpi-delta.flat { background: rgba(107,128,153,0.12); color: var(--muted); }
+
+.kpi-val { font-family: var(--font-display); font-size: 26px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 4px; }
+.kpi-card.c-blue   .kpi-val { color: var(--blue); }
+.kpi-card.c-green  .kpi-val { color: var(--green); }
+.kpi-card.c-gold   .kpi-val { color: var(--gold); }
+.kpi-card.c-purple .kpi-val { color: var(--purple); }
+.kpi-card.c-teal   .kpi-val { color: #2DD4BF; }
+.kpi-card.c-teal   .kpi-val.negative { color: #FCA5A5; }
+.kpi-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; }
+/* void-count footnote under KPI cards */
+.kpi-void-note { font-size: 10px; color: rgba(252,165,165,0.7); margin-top: 5px; font-family: var(--font-mono); }
+
+/* ── CHART SECTION ──────────────────────────────────────── */
+.charts-row { display: grid; grid-template-columns: 1fr 380px; gap: 16px; margin-bottom: 20px; }
+.chart-card {
+  background: var(--navy-2); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 22px 24px;
+}
+.chart-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
+.chart-title { font-family: var(--font-display); font-size: 14px; font-weight: 700; color: var(--white); }
+.chart-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.chart-legend { display: flex; gap: 14px; }
+.legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); }
+.legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.chart-wrap { position: relative; }
+
+/* Buy/Sell donut */
+.donut-center {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  pointer-events: none;
+}
+.donut-pct { font-family: var(--font-display); font-size: 22px; font-weight: 700; color: var(--blue); }
+.donut-lbl { font-size: 11px; color: var(--muted); }
+
+/* ── BOTTOM GRID ────────────────────────────────────────── */
+.bottom-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+
+/* ── TOP CLIENTS TABLE ──────────────────────────────────── */
+.mini-table { width: 100%; border-collapse: collapse; }
+.mini-table thead th {
+  font-size: 10px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.08em; color: var(--muted);
+  padding: 8px 10px; border-bottom: 1px solid var(--border);
+  background: var(--navy-3);
+}
+.mini-table tbody td { padding: 11px 10px; font-size: 12.5px; color: var(--white); border-bottom: 1px solid var(--border-soft); }
+.mini-table tbody tr:last-child td { border-bottom: none; }
+.mini-table tbody tr { transition: background 0.12s; }
+.mini-table tbody tr:hover td { background: rgba(14,165,233,0.04); }
+
+.client-rank { font-family: var(--font-mono); font-size: 11px; color: var(--muted); text-align: center; }
+.client-init {
+  width: 30px; height: 30px; border-radius: 50%;
+  background: var(--blue-glow); border: 1px solid rgba(14,165,233,0.25);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-family: var(--font-display); font-size: 11px; font-weight: 700;
+  color: var(--blue); flex-shrink: 0;
+}
+.client-cell-inner { display: flex; align-items: center; gap: 9px; }
+.client-name { font-weight: 600; font-size: 13px; }
+.client-txns { font-size: 11px; color: var(--muted); margin-top: 1px; }
+.vol-bar-wrap { display: flex; align-items: center; gap: 8px; }
+.vol-bar-bg { flex: 1; height: 4px; background: rgba(255,255,255,0.06); border-radius: 10px; }
+.vol-bar-fill { height: 100%; border-radius: 10px; background: var(--blue); }
+.vol-label { font-size: 11px; color: var(--muted); white-space: nowrap; font-family: var(--font-mono); }
+
+/* ── RECENT ACTIVITY ────────────────────────────────────── */
+.activity-list { display: flex; flex-direction: column; gap: 0; }
+.activity-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 0; border-bottom: 1px solid var(--border-soft);
+}
+.activity-item:last-child { border-bottom: none; }
+.activity-icon {
+  width: 34px; height: 34px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; flex-shrink: 0;
+}
+.ai-buy  { background: rgba(16,185,129,0.1); }
+.ai-sell { background: rgba(245,158,11,0.1); }
+.ai-info { flex: 1; min-width: 0; }
+.ai-name { font-size: 13px; font-weight: 600; color: var(--white); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ai-receipt { font-family: var(--font-mono); font-size: 10.5px; color: var(--muted); }
+.ai-right { text-align: right; flex-shrink: 0; }
+.ai-amount { font-family: var(--font-display); font-size: 13px; font-weight: 700; }
+.ai-buy-amt  { color: var(--green); }
+.ai-sell-amt { color: var(--gold); }
+.ai-time { font-size: 10.5px; color: var(--muted); margin-top: 2px; }
+
+/* ── CHAIN HEALTH BANNER ────────────────────────────────── */
+.chain-banner {
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px 20px; border-radius: var(--radius-md);
+  margin-bottom: 20px;
+}
+.chain-banner.intact  { background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.2); }
+.chain-banner.warning { background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.2); }
+.chain-banner.error   { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2); }
+.banner-icon { font-size: 22px; flex-shrink: 0; }
+.banner-text { flex: 1; }
+.banner-title { font-family: var(--font-display); font-size: 14px; font-weight: 700; }
+.chain-banner.intact  .banner-title { color: var(--green); }
+.chain-banner.warning .banner-title { color: var(--gold); }
+.chain-banner.error   .banner-title { color: #FCA5A5; }
+.banner-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.banner-action { flex-shrink: 0; }
+
+/* ── DAY HEATMAP ────────────────────────────────────────── */
+.heatmap-card { background: var(--navy-2); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px 24px; margin-bottom: 20px; }
+.heatmap-grid { display: flex; gap: 3px; flex-wrap: wrap; margin-top: 14px; }
+.hm-cell {
+  width: 24px; height: 24px; border-radius: 4px;
+  cursor: pointer; transition: transform 0.12s;
+  position: relative;
+}
+.hm-cell:hover { transform: scale(1.25); z-index: 2; }
+.hm-0  { background: rgba(14,165,233,0.06); }
+.hm-1  { background: rgba(14,165,233,0.18); }
+.hm-2  { background: rgba(14,165,233,0.32); }
+.hm-3  { background: rgba(14,165,233,0.50); }
+.hm-4  { background: rgba(14,165,233,0.70); }
+.hm-5  { background: var(--blue); }
+.hm-legend { display: flex; align-items: center; gap: 4px; margin-top: 10px; }
+.hm-legend-label { font-size: 11px; color: var(--muted); }
+.hm-legend-swatch { width: 16px; height: 10px; border-radius: 3px; }
+
+/* ── EXPORT SECTION ─────────────────────────────────────── */
+.export-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.export-btn {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 18px; border-radius: var(--radius-md);
+  font-size: 13px; font-weight: 600; cursor: pointer;
+  border: 1px solid var(--border); background: var(--navy-3); color: var(--white);
+  transition: all 0.15s; font-family: var(--font-display);
+}
+.export-btn:hover { background: var(--blue-glow); border-color: var(--blue); color: var(--blue); }
+
+/* ── MOBILE OVERLAY ─────────────────────────────────────── */
+.mobile-overlay { display: none; position: fixed; inset: 0; background: rgba(8,15,28,0.7); z-index: 90; }
+.mobile-overlay.show { display: block; }
+@media (max-width: 1100px) {
+  .kpi-grid { grid-template-columns: repeat(3,1fr); }
+}
+@media (max-width: 768px) {
+  .sidebar { left: -220px; }
+  .sidebar.open { left: 0; }
+  .main-area { margin-left: 0; }
+  .page-body { padding: 20px 16px 40px; }
+  .kpi-grid { grid-template-columns: 1fr 1fr; }
+  .charts-row { grid-template-columns: 1fr; }
+  .bottom-grid { grid-template-columns: 1fr; }
+  .mobile-menu-btn { display: flex; }
+  .period-tabs { overflow-x: auto; }
+}
+@media (max-width: 480px) {
+  .kpi-grid { grid-template-columns: 1fr; }
+  .page-topbar { padding: 0 16px; }
+  .kpi-val { font-size: 22px; }
+}
+
+/* ── TOAST ──────────────────────────────────────────────── */
+#toastContainer { position: fixed; top: 76px; right: 20px; z-index: 1000; display: flex; flex-direction: column; gap: 8px; }
+.toast { background: var(--navy-2); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 12px 18px; font-size: 13px; color: var(--white); display: flex; align-items: center; gap: 10px; min-width: 240px; animation: toast-in 0.25s ease; }
+.toast.success { border-left: 3px solid var(--green); }
+.toast.error   { border-left: 3px solid var(--red); }
+.toast.info    { border-left: 3px solid var(--blue); }
+@keyframes toast-in { from { opacity:0; transform: translateX(20px); } to { opacity:1; transform:translateX(0); } }
+
+/* ── LOADING ────────────────────────────────────────────── */
+#loadingOverlay {
+  position: fixed; inset: 0; background: var(--navy);
+  z-index: 999; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 24px;
+}
+.loading-hex { font-size: 48px; color: var(--blue); animation: pulse-glow 2s ease-in-out infinite; }
+@keyframes pulse-glow { 0%,100%{text-shadow:0 0 10px rgba(14,165,233,0.5)} 50%{text-shadow:0 0 28px rgba(14,165,233,1)} }
+.loading-label { font-family: var(--font-mono); font-size: 13px; color: var(--muted); }
+.loading-bar-wrap { width: 200px; height: 3px; background: rgba(14,165,233,0.15); border-radius: 10px; overflow: hidden; }
+.loading-bar-fill { height: 100%; background: linear-gradient(90deg,var(--blue),var(--gold)); border-radius: 10px; animation: lbar 1.8s ease forwards; }
+@keyframes lbar { 0%{width:0} 60%{width:80%} 100%{width:100%} }
+
+/* ── NO DATA STATE ──────────────────────────────────────── */
+.no-data { text-align: center; padding: 40px 20px; color: var(--muted); }
+.no-data-icon { font-size: 36px; opacity: 0.4; margin-bottom: 10px; }
+.no-data-text { font-size: 13px; }
+</style>
+</head>
+<body>
+
+<!-- ── LOADING ────────────────────────────────────────────── -->
+<div id="loadingOverlay">
+  <div class="loading-hex">⬡</div>
+  <div class="loading-bar-wrap"><div class="loading-bar-fill"></div></div>
+  <div class="loading-label" id="loadingLabel">Initializing database…</div>
+</div>
+
+<!-- ── TOAST CONTAINER ────────────────────────────────────── -->
+<div id="toastContainer" aria-live="polite" aria-atomic="true"></div>
+<div class="mobile-overlay" id="mobileOverlay"></div>
+
+<!-- ── APP SHELL ──────────────────────────────────────────── -->
+<div class="app-shell">
+
+  <!-- SIDEBAR -->
+  <nav role="navigation" class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <div class="sb-logo" id="sbLogo">⬡</div>
+      <div class="sb-name">
+        <span id="sbBizName">Exchange</span>
+        <small>Management System</small>
+      </div>
+    </div>
+
+    <div class="nav-group-label">Main</div>
+    <a href="dashboard.html" class="nav-item active" aria-current="page"><span class="nav-icon">📊</span> Dashboard</a>
+    <a href="new-transaction.html" class="nav-item"><span class="nav-icon">➕</span> New Transaction</a>
+    <a href="transactions.html" class="nav-item"><span class="nav-icon">📋</span> All Transactions</a>
+    <a href="clients.html" class="nav-item"><span class="nav-icon">👥</span> Clients KYC</a>
+
+    <div class="nav-group-label">System</div>
+    <a href="chain-integrity.html" class="nav-item"><span class="nav-icon">🔐</span> Chain Integrity</a>
+    <a href="reports.html" class="nav-item"><span class="nav-icon">📑</span> Reports</a>
+    <a href="settings.html" class="nav-item"><span class="nav-icon">⚙️</span> Settings</a>
+    <a href="audit-log-view.html" class="nav-item"><span class="nav-icon">📁</span> Audit Logs</a>
+
+    <div class="sidebar-footer">
+      <div class="session-pill">⏱ Session: <span id="sessionTimer">—</span></div>
+      <button class="nav-item" id="logoutBtn"><span class="nav-icon">🚪</span> Logout</button>
+    </div>
+  </nav>
+
+  <!-- MAIN AREA -->
+  <div class="main-area">
+
+    <!-- TOPBAR -->
+    <div class="page-topbar">
+      <div class="ptb-left">
+        <button class="mobile-menu-btn" id="mobileMenuBtn">☰</button>
+        <div>
+          <div class="ptb-title">Dashboard</div>
+          <div class="ptb-sub" id="ptbSub">Loading…</div>
+        </div>
+      </div>
+      <div class="ptb-right">
+        <div class="chain-pill" id="chainStatusPill">
+          <div class="chain-dot"></div>
+          <span id="chainStatusText">Verifying…</span>
+        </div>
+        <button class="btn-secondary btn-sm" onclick="refreshDashboard()">↻ Refresh</button>
+      </div>
+    </div>
+
+    <!-- PAGE BODY -->
+    <div class="page-body">
+
+      <!-- Chain Health Banner -->
+      <div class="chain-banner intact" id="chainBanner" style="display:none;">
+        <div class="banner-icon" id="bannerIcon">✅</div>
+        <div class="banner-text">
+          <div class="banner-title" id="bannerTitle">Chain Intact</div>
+          <div class="banner-sub" id="bannerSub">All transactions verified</div>
+        </div>
+        <div class="banner-action">
+          <a href="chain-integrity.html" class="btn-secondary btn-sm">View Chain →</a>
+        </div>
+      </div>
+
+      <!-- Anchor Reminder Banner (tamper-EVIDENCE, not tamper-prevention —
+           see exportChainAnchor() in hash-engine.js for why this matters) -->
+      <div class="chain-banner warning" id="anchorBanner" style="display:none;">
+        <div class="banner-icon">🪪</div>
+        <div class="banner-text">
+          <div class="banner-title">Save a Chain Anchor</div>
+          <div class="banner-sub" id="anchorBannerSub">It's been a while since you last saved an anchor outside this device.</div>
+        </div>
+        <div class="banner-action">
+          <a href="chain-integrity.html" class="btn-secondary btn-sm">Save Anchor →</a>
+        </div>
+      </div>
+
+
+      <!-- Page Header -->
+      <div class="page-header">
+        <div class="page-header-left">
+          <div class="eyebrow">Analytics</div>
+          <h2>Business Overview</h2>
+          <div class="last-update" id="lastUpdate">—</div>
+        </div>
+        <div class="period-tabs">
+          <button class="period-btn" onclick="setPeriod(7,this)">7D</button>
+          <button class="period-btn active" onclick="setPeriod(30,this)">30D</button>
+          <button class="period-btn" onclick="setPeriod(90,this)">90D</button>
+          <button class="period-btn" onclick="setPeriod(365,this)">1Y</button>
+          <button class="period-btn" onclick="setPeriod(0,this)">All</button>
+        </div>
+      </div>
+
+      <!-- KPI CARDS -->
+      <div class="kpi-grid">
+        <div class="kpi-card c-blue">
+          <div class="kpi-top">
+            <div class="kpi-icon">💰</div>
+            <div class="kpi-delta flat" id="deltaVolume">—</div>
+          </div>
+          <div class="kpi-val" id="kpiVolume">—</div>
+          <div class="kpi-label">Total Volume (PKR)</div>
+          <div class="kpi-void-note" id="kpiVolumeVoidNote" style="display:none;"></div>
+        </div>
+        <div class="kpi-card c-green">
+          <div class="kpi-top">
+            <div class="kpi-icon">📋</div>
+            <div class="kpi-delta flat" id="deltaTxns">—</div>
+          </div>
+          <div class="kpi-val" id="kpiTxns">—</div>
+          <div class="kpi-label">Transactions</div>
+          <div class="kpi-void-note" id="kpiTxnsVoidNote" style="display:none;"></div>
+        </div>
+        <div class="kpi-card c-gold">
+          <div class="kpi-top">
+            <div class="kpi-icon">👥</div>
+            <div class="kpi-delta flat" id="deltaClients">—</div>
+          </div>
+          <div class="kpi-val" id="kpiClients">—</div>
+          <div class="kpi-label">Active Clients</div>
+        </div>
+        <div class="kpi-card c-purple">
+          <div class="kpi-top">
+            <div class="kpi-icon">📈</div>
+            <div class="kpi-delta flat" id="deltaAvg">—</div>
+          </div>
+          <div class="kpi-val" id="kpiAvg">—</div>
+          <div class="kpi-label">Avg Transaction</div>
+        </div>
+        <div class="kpi-card c-teal">
+          <div class="kpi-top">
+            <div class="kpi-icon">💵</div>
+            <div class="kpi-delta flat" id="deltaProfit">—</div>
+          </div>
+          <div class="kpi-val" id="kpiProfit">—</div>
+          <div class="kpi-label">Total Profit (PKR)</div>
+          <div class="kpi-void-note" id="kpiProfitVoidNote" style="display:none;"></div>
+        </div>
+      </div>
+
+      <!-- CHARTS ROW -->
+      <div class="charts-row">
+        <!-- Volume Chart -->
+        <div class="chart-card">
+          <div class="chart-header">
+            <div>
+              <div class="chart-title">Volume Over Time</div>
+              <div class="chart-sub" id="volumeChartSub">PKR flow — buy vs sell</div>
+            </div>
+            <div class="chart-legend">
+              <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div>Buy</div>
+              <div class="legend-item"><div class="legend-dot" style="background:var(--gold)"></div>Sell</div>
+            </div>
+          </div>
+          <div class="chart-wrap"><canvas id="volumeChart" height="220"></canvas></div>
+        </div>
+
+        <!-- Buy/Sell Donut -->
+        <div class="chart-card">
+          <div class="chart-header">
+            <div>
+              <div class="chart-title">Buy vs Sell</div>
+              <div class="chart-sub">Transaction split</div>
+            </div>
+          </div>
+          <div class="chart-wrap" style="position:relative; height:200px;">
+            <canvas id="donutChart" height="200"></canvas>
+            <div class="donut-center">
+              <div class="donut-pct" id="donutPct">—</div>
+              <div class="donut-lbl" id="donutLbl">Buy %</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:12px;margin-top:16px;justify-content:center;">
+            <div style="text-align:center;">
+              <div style="font-family:var(--font-display);font-size:18px;font-weight:700;color:var(--green)" id="buyCount">—</div>
+              <div style="font-size:11px;color:var(--muted);">Buy Txns</div>
+            </div>
+            <div style="width:1px;background:var(--border-soft)"></div>
+            <div style="text-align:center;">
+              <div style="font-family:var(--font-display);font-size:18px;font-weight:700;color:var(--gold)" id="sellCount">—</div>
+              <div style="font-size:11px;color:var(--muted);">Sell Txns</div>
+            </div>
+            <div style="width:1px;background:var(--border-soft)"></div>
+            <div style="text-align:center;">
+              <div style="font-family:var(--font-display);font-size:18px;font-weight:700;color:var(--blue)" id="avgRate">—</div>
+              <div style="font-size:11px;color:var(--muted);">Avg Rate</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- BOTTOM GRID -->
+      <div class="bottom-grid">
+        <!-- Top Clients -->
+        <div class="chart-card">
+          <div class="chart-header">
+            <div>
+              <div class="chart-title">Top Clients</div>
+              <div class="chart-sub">by PKR volume in period</div>
+            </div>
+            <a href="clients.html" class="btn-ghost btn-sm">View All →</a>
+          </div>
+          <div id="topClientsWrap">
+            <div class="no-data"><div class="no-data-icon">👥</div><div class="no-data-text">No client data yet</div></div>
+          </div>
+        </div>
+
+        <!-- Recent Transactions -->
+        <div class="chart-card">
+          <div class="chart-header">
+            <div>
+              <div class="chart-title">Recent Transactions</div>
+              <div class="chart-sub">last 8 entries</div>
+            </div>
+            <a href="transactions.html" class="btn-ghost btn-sm">View All →</a>
+          </div>
+          <div class="activity-list" id="recentTxns">
+            <div class="no-data"><div class="no-data-icon">📋</div><div class="no-data-text">No transactions yet</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Activity Heatmap -->
+      <div class="heatmap-card">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">Activity Heatmap</div>
+            <div class="chart-sub">Daily transaction count — last 84 days</div>
+          </div>
+          <div class="hm-legend">
+            <div class="hm-legend-label">Less</div>
+            <div class="hm-legend-swatch hm-0"></div>
+            <div class="hm-legend-swatch hm-2"></div>
+            <div class="hm-legend-swatch hm-3"></div>
+            <div class="hm-legend-swatch hm-4"></div>
+            <div class="hm-legend-swatch hm-5"></div>
+            <div class="hm-legend-label">More</div>
+          </div>
+        </div>
+        <div class="heatmap-grid" id="heatmapGrid"></div>
+      </div>
+
+    </div><!-- /page-body -->
+  </div><!-- /main-area -->
+</div><!-- /app-shell -->
+
+<!-- SCRIPTS -->
+<script src="db.js"></script>
+<script src="auth.js"></script>
+<script src="profile.js"></script>
+<script src="audit-log.js"></script>
+<script src="hash-engine.js"></script>
+<script>
+'use strict';
+
+// ── STATE ─────────────────────────────────────────────────
+let _allTxns    = [];
+let _allClients = [];
+let _period     = 30;
+let _charts     = {};
+
+// ── INIT ──────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', async () => {
+  // CRITICAL Security Guard: Use requireAuth as the boot step
+  if (!Auth.requireAuth()) return;
+
+  setLoadingLabel('Loading database…');
+  await DB.init();
+
+  setLoadingLabel('Loading profile…');
+  await loadProfile();
+
+  setLoadingLabel('Checking chain integrity…');
+  await runChainCheck();
+
+  setLoadingLabel('Loading transactions…');
+  await loadAllData();
+  checkAnchorReminder();
+
+  setLoadingLabel('Building charts…');
+  renderDashboard();
+
+  setupSession();
+  setupMobileNav();
+  setupLogout();
+
+  document.getElementById('loadingOverlay').style.display = 'none';
+  AuditLog.add('DASHBOARD_VIEWED', `Period: ${_period}d`);
+});
+
+function setLoadingLabel(msg) {
+  document.getElementById('loadingLabel').textContent = msg;
+}
+
+// ── PROFILE ───────────────────────────────────────────────
+async function loadProfile() {
+  try {
+    const p = await Profile.get();
+    if (p) {
+      setTxt('sbLogo', p.logoEmoji || '⬡');
+      setTxt('sbBizName', p.businessName || 'Exchange');
+      setTxt('ptbSub', p.businessName || 'Exchange Management System');
+    }
+  } catch(e) {}
+}
+
+// ── ANCHOR REMINDER ───────────────────────────────────────
+// Tamper-EVIDENCE nudge: the hash chain only proves internal
+// consistency of the local data, not that it was never altered
+// by someone with device access. An anchor saved off-device once
+// a day closes that gap. This banner just reminds; it never blocks.
+function checkAnchorReminder() {
+  try {
+    const meta = HashEngine.getLastAnchorMeta();
+    const banner = document.getElementById('anchorBanner');
+    const sub = document.getElementById('anchorBannerSub');
+    if (!banner) return;
+
+    // Nothing to anchor yet if the chain itself is empty.
+    if (!_allTxns || _allTxns.length === 0) {
+      if (banner) banner.style.display = 'none';
+    }
+
+    if (!meta.overdue) {
+      banner.style.display = 'none';
+      return;
+    }
+
+    sub.textContent = meta.hasAnchor
+      ? `Last anchor saved ${formatTimeAgo(meta.takenAt)}. Save a fresh one to keep off-device tamper evidence current.`
+      : `No anchor has been saved yet. Saving one outside this device lets you later detect changes that a purely local hash check can't catch.`;
+    banner.style.display = 'flex';
+  } catch (e) { /* non-fatal — reminder only */ }
+}
+
+// ── CHAIN CHECK ───────────────────────────────────────────
+async function runChainCheck() {
+  try {
+    // CRITICAL: Call startupCheck EXACTLY ONCE per load to satisfy requirements.
+    const check = await HashEngine.startupCheck();
+    const pill  = document.getElementById('chainStatusPill');
+    const banner = document.getElementById('chainBanner');
+    banner.style.display = 'flex';
+
+    if (check.status === 'EMPTY') {
+      setTxt('chainStatusText', 'No txns');
+      pill.style.background = 'rgba(107,128,153,0.1)';
+      pill.style.color = 'var(--muted)';
+      pill.style.borderColor = 'rgba(107,128,153,0.2)';
+      banner.className = 'chain-banner intact';
+      setTxt('bannerIcon', 'ℹ️');
+      setTxt('bannerTitle', 'No Transactions Yet');
+      setTxt('bannerSub', 'Add your first transaction to start the hash chain');
+    } else if (check.ok) {
+      setTxt('chainStatusText', 'Chain OK');
+      setTxt('bannerIcon', '✅');
+      setTxt('bannerTitle', 'Chain Intact — All Records Verified');
+      setTxt('bannerSub', `${check.count} tamper-proof transaction${check.count!==1?'s':''} • Tip: ${check.tipReceipt || '—'}`);
+      banner.className = 'chain-banner intact';
+    } else {
+      setTxt('chainStatusText', '⚠ Alert');
+      pill.style.background = 'rgba(239,68,68,0.1)';
+      pill.style.color = '#FCA5A5';
+      pill.style.borderColor = 'rgba(239,68,68,0.25)';
+      banner.className = 'chain-banner error';
+      setTxt('bannerIcon', '🚨');
+      setTxt('bannerTitle', 'Chain Alert');
+      setTxt('bannerSub', check.message);
+    }
+  } catch(e) {
+    setTxt('chainStatusText', 'Error');
+  }
+}
+
+// ── LOAD DATA ─────────────────────────────────────────────
+// _voidedChainIndexes: Set of chain_index values that have been voided by a
+// later correction entry. Built once on load and updated on refresh.
+// Used by effectiveTxns() to exclude both sides of a void pair from totals.
+let _voidedChainIndexes = new Set();
+
+async function loadAllData() {
+  try {
+    _allTxns = await DB.all(`SELECT * FROM transactions ORDER BY chain_index ASC`);
+    _allClients = await DB.all(`SELECT * FROM clients ORDER BY total_volume_pkr DESC`);
+
+    // Build the voided-index set in a single pass over the full ledger.
+    // Any row with is_void=1 carries voids_chain_index pointing at its
+    // original. We record BOTH the original's chain_index (so it is
+    // excluded from effective totals) and the void entry's own chain_index
+    // (so the correction entry itself doesn't double-count its amounts).
+    _voidedChainIndexes = new Set();
+    _allTxns.forEach(t => {
+      if (Number(t.is_void) === 1) {
+        // The correction entry's amounts are a copy of the original's —
+        // counting them would double the error being corrected.
+        _voidedChainIndexes.add(t.chain_index);
+        // The original is superseded.
+        if (t.voids_chain_index != null) {
+          _voidedChainIndexes.add(Number(t.voids_chain_index));
+        }
+      }
+    });
+  } catch(e) {
+    Toast.show('Error loading data: ' + e.message, 'error');
+    _allTxns = [];
+    _allClients = [];
+    _voidedChainIndexes = new Set();
+  }
+
+  const now = new Date().toLocaleDateString('en-PK', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+  setTxt('lastUpdate', 'Last updated: ' + now);
+}
+
+// ── PERIOD ────────────────────────────────────────────────
+function setPeriod(days, btn) {
+  _period = days;
+  document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderDashboard();
+  AuditLog.add('DASHBOARD_PERIOD_CHANGED', `Period: ${days}d`);
+}
+
+function getFilteredTxns() {
+  if (_period === 0) return _allTxns;
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - _period);
+  const cutoffStr = cutoff.toISOString();
+  return _allTxns.filter(t => t.timestamp >= cutoffStr);
+}
+
+// effectiveTxns(arr): strips void entries and voided originals from any
+// transaction array so that KPI totals reflect the corrected ledger state.
+// Backward-compatible: rows without is_void simply have is_void=0/null and
+// voids_chain_index=null — they pass through the filter unchanged.
+function effectiveTxns(arr) {
+  return arr.filter(t => !_voidedChainIndexes.has(Number(t.chain_index)));
+}
+
+// ── RENDER DASHBOARD ─────────────────────────────────────
+function renderDashboard() {
+  const txns = getFilteredTxns();               // all rows in period (for heatmap/recent)
+  const eff  = effectiveTxns(txns);             // excludes void pairs (for KPIs/charts)
+  renderKPIs(eff, txns);
+  renderVolumeChart(eff);
+  renderDonut(eff);
+  renderTopClients(eff);
+  renderRecentTxns();
+  renderHeatmap();
+}
+
+// ── KPI CARDS ─────────────────────────────────────────────
+// txns = effective (void-excluded) rows for the period — used for every
+//        financial metric so voided pairs don't distort totals.
+// rawTxns = all rows in the period — used only for the delta comparisons
+//           against the prior period, where the prior period also uses
+//           effectiveTxns(), keeping the comparison apples-to-apples.
+function renderKPIs(txns, rawTxns) {
+  const total = txns.reduce((s,t) => s + (parseFloat(t.amount_pkr)||0), 0);
+  const avg   = txns.length ? total / txns.length : 0;
+
+  const profitTxns = txns.filter(t => t.profit_pkr !== null && t.profit_pkr !== undefined && t.profit_pkr !== '');
+  const totalProfit = profitTxns.reduce((s,t) => s + (parseFloat(t.profit_pkr)||0), 0);
+
+  const clientSet = new Set(txns.filter(t => t.client_name).map(t => t.client_name.trim().toLowerCase()));
+
+  // Count how many void-pair rows were excluded in this period for the footnotes
+  const rawCount = rawTxns.length;
+  const effCount = txns.length;
+  const voidExcluded = rawCount - effCount;  // originals + void entries both excluded
+
+  setTxt('kpiVolume', fmtPkrBig(total));
+  setTxt('kpiTxns',   effCount.toLocaleString());
+  setTxt('kpiClients', clientSet.size.toLocaleString());
+  setTxt('kpiAvg', fmtPkrBig(avg));
+
+  // Void footnotes — only shown when there are void pairs in this period
+  const noteVol  = document.getElementById('kpiVolumeVoidNote');
+  const noteTxns = document.getElementById('kpiTxnsVoidNote');
+  const noteProf = document.getElementById('kpiProfitVoidNote');
+  if (voidExcluded > 0) {
+    const label = `${voidExcluded} void-pair row${voidExcluded !== 1 ? 's' : ''} excluded`;
+    noteVol.textContent  = label;
+    noteTxns.textContent = label;
+    noteVol.style.display  = '';
+    noteTxns.style.display = '';
+    if (noteProf) { noteProf.textContent = label; noteProf.style.display = ''; }
+  } else {
+    noteVol.style.display  = 'none';
+    noteTxns.style.display = 'none';
+    if (noteProf) noteProf.style.display = 'none';
+  }
+
+  const profitEl = document.getElementById('kpiProfit');
+  if (profitTxns.length === 0) {
+    profitEl.textContent = '—';
+    profitEl.classList.remove('negative');
+  } else {
+    profitEl.textContent = (totalProfit < 0 ? '-' : '') + fmtPkrBig(Math.abs(totalProfit));
+    profitEl.classList.toggle('negative', totalProfit < 0);
+  }
+
+  if (_period > 0) {
+    const prevCutoff = new Date();
+    prevCutoff.setDate(prevCutoff.getDate() - _period * 2);
+    const prevEnd    = new Date();
+    prevEnd.setDate(prevEnd.getDate() - _period);
+    const prevS = prevCutoff.toISOString(), prevE = prevEnd.toISOString();
+    // Use effectiveTxns() for the prior period too — apples-to-apples comparison
+    const prevRaw  = _allTxns.filter(t => t.timestamp >= prevS && t.timestamp < prevE);
+    const prev     = effectiveTxns(prevRaw);
+    const prevVol  = prev.reduce((s,t) => s + (parseFloat(t.amount_pkr)||0), 0);
+
+    renderDelta('deltaVolume', total, prevVol);
+    renderDelta('deltaTxns',   txns.length, prev.length);
+    const prevClientSet = new Set(prev.filter(t=>t.client_name).map(t=>t.client_name.trim().toLowerCase()));
+    renderDelta('deltaClients', clientSet.size, prevClientSet.size);
+    const prevAvg = prev.length ? prevVol / prev.length : 0;
+    renderDelta('deltaAvg', avg, prevAvg);
+
+    const prevProfitTxns = prev.filter(t => t.profit_pkr !== null && t.profit_pkr !== undefined && t.profit_pkr !== '');
+    const prevProfit = prevProfitTxns.reduce((s,t) => s + (parseFloat(t.profit_pkr)||0), 0);
+    renderProfitDelta(profitTxns.length === 0 && prevProfitTxns.length === 0, totalProfit, prevProfit, prevProfitTxns.length > 0);
+  }
+}
+
+function renderDelta(id, curr, prev) {
+  const el = document.getElementById(id);
+  if (!prev) { el.textContent = 'New'; el.className = 'kpi-delta flat'; return; }
+  const pct = ((curr - prev) / prev * 100);
+  const abs = Math.abs(pct).toFixed(1);
+  el.textContent = (pct >= 0 ? '↑ ' : '↓ ') + abs + '%';
+  el.className = 'kpi-delta ' + (pct >= 0 ? 'up' : 'down');
+}
+
+// Profit-specific delta: unlike volume/txns/clients/avg, profit can be
+// negative, so a plain percent-change (which divides by the previous
+// value) gives a misleading or sign-flipped result whenever the previous
+// period was a loss or zero. This shows the plain PKR change instead —
+// always sign-correct, and meaningful even when crossing zero.
+function renderProfitDelta(noPriorData, curr, prev, hadPrev) {
+  const el = document.getElementById('deltaProfit');
+  if (noPriorData || !hadPrev) {
+    el.textContent = hadPrev ? '—' : 'New';
+    el.className = 'kpi-delta flat';
+    return;
+  }
+  const diff = curr - prev;
+  const label = (diff >= 0 ? '↑ ' : '↓ ') + fmtPkrBig(Math.abs(diff));
+  el.textContent = label;
+  el.className = 'kpi-delta ' + (diff >= 0 ? 'up' : 'down');
+}
+
+// ── VOLUME CHART ──────────────────────────────────────────
+function renderVolumeChart(txns) {
+  const ctx = document.getElementById('volumeChart').getContext('2d');
+
+  const days = _period > 0 ? _period : 180;
+  const labels = [], buyData = [], sellData = [];
+  for (let i = days-1; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const dateStr = d.toISOString().slice(0,10);
+    labels.push(i === 0 ? 'Today' : formatDateShort(d));
+    const dayTxns = txns.filter(t => t.timestamp && t.timestamp.slice(0,10) === dateStr);
+    buyData.push(dayTxns.filter(t=>t.txn_type==='buy').reduce((s,t)=>s+(parseFloat(t.amount_pkr)||0),0));
+    sellData.push(dayTxns.filter(t=>t.txn_type==='sell').reduce((s,t)=>s+(parseFloat(t.amount_pkr)||0),0));
+  }
+
+  const step = days <= 30 ? 1 : days <= 90 ? 7 : 30;
+  const displayLabels = labels.map((l,i) => (days - 1 - i) % step === 0 ? l : '');
+
+  if (_charts.volume) _charts.volume.destroy();
+  _charts.volume = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: displayLabels,
+      datasets: [
+        {
+          label: 'Buy', data: buyData,
+          backgroundColor: 'rgba(16,185,129,0.6)',
+          borderColor: 'rgba(16,185,129,0.9)',
+          borderWidth: 1, borderRadius: 3, borderSkipped: false
+        },
+        {
+          label: 'Sell', data: sellData,
+          backgroundColor: 'rgba(245,158,11,0.55)',
+          borderColor: 'rgba(245,158,11,0.85)',
+          borderWidth: 1, borderRadius: 3, borderSkipped: false
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#0E1A2E',
+          borderColor: 'rgba(14,165,233,0.3)',
+          borderWidth: 1,
+          titleColor: '#F0F6FF',
+          bodyColor: '#6B8099',
+          padding: 12,
+          callbacks: {
+            label: ctx => ` ${ctx.dataset.label}: ${fmtPkrBig(ctx.parsed.y)}`
+          }
+        }
+      },
+      scales: {
+        x: {
+          stacked: false,
+          grid: { color: 'rgba(14,165,233,0.06)' },
+          ticks: { color: '#6B8099', font: { size: 10 } },
+          border: { color: 'rgba(14,165,233,0.15)' }
+        },
+        y: {
+          grid: { color: 'rgba(14,165,233,0.06)' },
+          ticks: {
+            color: '#6B8099', font: { size: 10 },
+            callback: v => v >= 100000 ? (v/100000).toFixed(0)+'L' : v >= 1000 ? (v/1000).toFixed(0)+'K' : v
+          },
+          border: { color: 'rgba(14,165,233,0.15)' }
+        }
+      }
+    }
+  });
+
+  setTxt('volumeChartSub', `PKR flow over ${_period > 0 ? _period+'d' : 'all time'} — buy vs sell`);
+}
+
+// ── DONUT CHART ───────────────────────────────────────────
+function renderDonut(txns) {
+  const ctx = document.getElementById('donutChart').getContext('2d');
+  const buyCount  = txns.filter(t => t.txn_type === 'buy').length;
+  const sellCount = txns.filter(t => t.txn_type === 'sell').length;
+  const total = buyCount + sellCount;
+  const buyPct = total ? Math.round(buyCount / total * 100) : 0;
+
+  const rates = txns.filter(t => parseFloat(t.exchange_rate) > 0).map(t => parseFloat(t.exchange_rate));
+  const avgR = rates.length ? (rates.reduce((a,b)=>a+b,0)/rates.length) : 0;
+
+  setTxt('donutPct', buyPct + '%');
+  setTxt('buyCount', buyCount.toLocaleString());
+  setTxt('sellCount', sellCount.toLocaleString());
+  setTxt('avgRate', avgR ? avgR.toFixed(1) : '—');
+
+  if (_charts.donut) _charts.donut.destroy();
+  _charts.donut = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: ['Buy', 'Sell'],
+      datasets: [{
+        data: total ? [buyCount, sellCount] : [1, 0],
+        backgroundColor: total
+          ? ['rgba(16,185,129,0.75)', 'rgba(245,158,11,0.75)']
+          : ['rgba(107,128,153,0.2)', 'rgba(107,128,153,0.1)'],
+        borderColor: total
+          ? ['rgba(16,185,129,1)', 'rgba(245,158,11,1)']
+          : ['rgba(107,128,153,0.3)', 'rgba(107,128,153,0.15)'],
+        borderWidth: 2,
+        hoverOffset: 6
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      cutout: '68%',
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#0E1A2E',
+          borderColor: 'rgba(14,165,233,0.3)', borderWidth: 1,
+          titleColor: '#F0F6FF', bodyColor: '#6B8099', padding: 12,
+          callbacks: {
+            label: ctx => ` ${ctx.label}: ${ctx.parsed} txns`
+          }
+        }
+      }
+    }
+  });
+}
+
+// ── TOP CLIENTS ───────────────────────────────────────────
+function renderTopClients(txns) {
+  const wrap = document.getElementById('topClientsWrap');
+
+  const map = {};
+  txns.forEach(t => {
+    if (!t.client_name) return;
+    const key = t.client_name.trim();
+    if (!map[key]) map[key] = { name: key, vol: 0, txns: 0 };
+    map[key].vol  += parseFloat(t.amount_pkr) || 0;
+    map[key].txns += 1;
+  });
+  const clients = Object.values(map).sort((a,b) => b.vol - a.vol).slice(0, 6);
+
+  if (!clients.length) {
+    wrap.innerHTML = '<div class="no-data"><div class="no-data-icon">👥</div><div class="no-data-text">No client data in this period</div></div>';
+    return;
+  }
+
+  const maxVol = clients[0].vol;
+  wrap.innerHTML = `
+    <table class="mini-table">
+      <thead><tr>
+        <th>#</th><th>Client</th><th>Volume</th>
+      </tr></thead>
+      <tbody>
+        ${clients.map((c,i) => `
+          <tr>
+            <td class="client-rank">${i+1}</td>
+            <td>
+              <div class="client-cell-inner">
+                <div class="client-init">${initials(c.name)}</div>
+                <div>
+                  <div class="client-name">${escHtml(c.name)}</div>
+                  <div class="client-txns">${c.txns} txn${c.txns!==1?'s':''}</div>
+                </div>
+              </div>
+            </td>
+            <td>
+              <div class="vol-bar-wrap">
+                <div class="vol-bar-bg"><div class="vol-bar-fill" style="width:${Math.round(c.vol/maxVol*100)}%"></div></div>
+                <div class="vol-label">${fmtPkrBig(c.vol)}</div>
+              </div>
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>`;
+}
+
+// ── RECENT TRANSACTIONS ───────────────────────────────────
+function renderRecentTxns() {
+  const wrap = document.getElementById('recentTxns');
+  // Show most recent 8 entries from the full ledger (all rows visible for
+  // auditability — void entries and originals both appear with a badge).
+  const recent = [..._allTxns].reverse().slice(0, 8);
+
+  if (!recent.length) {
+    wrap.innerHTML = '<div class="no-data"><div class="no-data-icon">📋</div><div class="no-data-text">No transactions yet</div></div>';
+    return;
+  }
+
+  wrap.innerHTML = recent.map(t => {
+    const isBuy = t.txn_type === 'buy';
+    const isVoidEntry   = Number(t.is_void) === 1;
+    const isVoidedOrig  = !isVoidEntry && _voidedChainIndexes.has(Number(t.chain_index));
+
+    // Badge overlay on the receipt line
+    let badgeHtml = '';
+    if (isVoidEntry) {
+      badgeHtml = `<span style="font-size:9px; font-weight:700; color:#5eead4; background:rgba(13,148,136,0.15); border:1px solid rgba(13,148,136,0.3); border-radius:4px; padding:1px 5px; margin-left:4px;">VOID ENTRY</span>`;
+    } else if (isVoidedOrig) {
+      badgeHtml = `<span style="font-size:9px; font-weight:700; color:#fca5a5; background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.25); border-radius:4px; padding:1px 5px; margin-left:4px;">VOIDED</span>`;
+    }
+
+    return `
+      <div class="activity-item">
+        <div class="activity-icon ${isBuy ? 'ai-buy' : 'ai-sell'}">${isVoidEntry ? '↩️' : (isBuy ? '📥' : '📤')}</div>
+        <div class="ai-info">
+          <div class="ai-name">${escHtml(t.client_name || 'Unknown Client')}</div>
+          <div class="ai-receipt">${escHtml(t.receipt_number)}${badgeHtml}</div>
+        </div>
+        <div class="ai-right">
+          <div class="ai-amount ${isBuy ? 'ai-buy-amt' : 'ai-sell-amt'}" style="${(isVoidEntry||isVoidedOrig)?'opacity:0.45;text-decoration:line-through;':''}">${fmtPkrBig(parseFloat(t.amount_pkr)||0)}</div>
+          <div class="ai-time">${formatTimeAgo(t.timestamp)}</div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ── HEATMAP ───────────────────────────────────────────────
+function renderHeatmap() {
+  const grid = document.getElementById('heatmapGrid');
+  const days = 84;
+
+  // Count only effective (non-voided) transactions per day
+  const counts = {};
+  effectiveTxns(_allTxns).forEach(t => {
+    if (!t.timestamp) return;
+    const d = t.timestamp.slice(0,10);
+    counts[d] = (counts[d] || 0) + 1;
+  });
+  const maxCount = Math.max(...Object.values(counts), 1);
+
+  const cells = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const dateStr = d.toISOString().slice(0,10);
+    const cnt = counts[dateStr] || 0;
+    const level = cnt === 0 ? 0 : Math.min(5, Math.ceil(cnt / maxCount * 5));
+    const label = `${formatDateShort(d)}: ${cnt} txn${cnt!==1?'s':''}`;
+    cells.push(`<div class="hm-cell hm-${level}" title="${label}" onclick="Toast.show('${label}','info')"></div>`);
+  }
+  grid.innerHTML = cells.join('');
+}
+
+function refreshDashboard() {
+  Toast.show('Refreshing…', 'info');
+  loadAllData().then(() => {
+    renderDashboard();
+    Toast.show('✅ Dashboard refreshed', 'success');
+  });
+}
+
+// ── HELPERS ───────────────────────────────────────────────
+function setTxt(id, v) { const e = document.getElementById(id); if (e) e.textContent = v; }
+
+function escHtml(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function fmtPkrBig(n) {
+  const v = parseFloat(n||0);
+  if (v >= 10000000) return '₨ ' + (v/10000000).toFixed(2) + ' Cr';
+  if (v >= 100000)   return '₨ ' + (v/100000).toFixed(2) + ' L';
+  if (v >= 1000)     return '₨ ' + (v/1000).toFixed(1) + 'K';
+  return '₨ ' + v.toLocaleString('en-PK');
+}
+
+function formatDateShort(d) {
+  return d.toLocaleDateString('en-PK', { day:'numeric', month:'short' });
+}
+
+function formatTimeAgo(iso) {
+  if (!iso) return '—';
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1)   return 'Just now';
+  if (m < 60)  return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24)  return `${h}h ago`;
+  const days = Math.floor(h / 24);
+  if (days < 30) return `${days}d ago`;
+  return formatDateShort(new Date(iso));
+}
+
+function initials(name) {
+  if (!name) return '?';
+  const p = name.trim().split(/\s+/);
+  return (p[0][0] + (p[1] ? p[1][0] : '')).toUpperCase();
+}
+
+function setupSession() {
+  function tick() {
+    try {
+      const raw = localStorage.getItem('dems_session');
+      if (!raw) return;
+      const s = JSON.parse(raw);
+      const left = Math.max(0, Math.floor((s.expiresAt - Date.now()) / 1000));
+      const m = Math.floor(left/60), sec = left%60;
+      setTxt('sessionTimer', m + ':' + String(sec).padStart(2,'0'));
+    } catch(e) {}
+  }
+  tick(); setInterval(tick, 1000);
+}
+
+function setupLogout() {
+  document.getElementById('logoutBtn').addEventListener('click', () => {
+    Auth.logout();
+  });
+}
+
+function setupMobileNav() {
+  const btn = document.getElementById('mobileMenuBtn');
+  const sb  = document.getElementById('sidebar');
+  const ov  = document.getElementById('mobileOverlay');
+  if (!btn) return;
+  btn.addEventListener('click', () => { sb.classList.toggle('open'); ov.classList.toggle('show'); });
+  ov.addEventListener('click', () => { sb.classList.remove('open'); ov.classList.remove('show'); });
+}
+
+const Toast = {
+  show(msg, type='info', dur=3500) {
+    const c = document.getElementById('toastContainer');
+    const t = document.createElement('div');
+    const icons = { success:'✅', error:'❌', info:'ℹ️', warning:'⚠️' };
+    t.className = `toast ${type}`;
+    t.innerHTML = `<span>${icons[type]||'ℹ️'}</span><span>${msg}</span>`;
+    c.appendChild(t);
+    setTimeout(() => { t.style.opacity='0'; t.style.transition='opacity 0.3s'; setTimeout(()=>t.remove(),300); }, dur);
+  }
+};
+</script>
+</body>
+</html>

@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy"
+  content="default-src 'self';
+           script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com;
+           style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com;
+           font-src https://fonts.gstatic.com;
+           connect-src 'self' https://worldtimeapi.org;
+           img-src 'self' data: blob:;
+           object-src 'none';
+           base-uri 'self';">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Transaction Receipt — DEMS</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<style>
+/* ── LAYOUT ─────────────────────────────────────────────── */
+.app-shell { display: flex; min-height: 100vh; }
+
+.sidebar {
+  width: 220px; flex-shrink: 0;
+  background: var(--navy-2);
+  border-right: 1px solid var(--border);
+  padding: 24px 12px;
+  position: fixed; top: 0; left: 0; height: 100vh;
+  overflow-y: auto; z-index: 100;
+  display: flex; flex-direction: column;
+  transition: left 0.25s;
+}
+.sidebar-brand {
+  display: flex; align-items: center; gap: 10px;
+  padding: 0 8px 20px; border-bottom: 1px solid var(--border); margin-bottom: 20px;
+}
+.sb-logo { font-size: 22px; color: var(--blue); }
+.sb-name { font-family: var(--font-display); font-size: 15px; font-weight: 700; color: var(--white); line-height: 1.1; }
+.sb-name small { display: block; color: var(--muted); font-size: 10px; font-weight: 400; }
+.nav-group-label {
+  font-size: 10px; font-weight: 600; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.1em;
+  padding: 0 8px; margin: 16px 0 6px;
+}
+.nav-item {
+  display: flex; align-items: center; gap: 9px;
+  padding: 9px 10px; border-radius: var(--radius-sm);
+  font-size: 13px; font-weight: 500; color: var(--muted);
+  text-decoration: none; transition: all 0.15s; margin-bottom: 2px;
+  background: none; border: none; cursor: pointer; width: 100%; text-align: left;
+}
+.nav-item:hover { background: var(--blue-glow); color: var(--white); text-decoration: none; }
+.nav-item.active { background: var(--blue-glow); color: var(--blue); border: 1px solid rgba(14,165,233,0.2); }
+.nav-icon { font-size: 15px; width: 18px; text-align: center; flex-shrink: 0; }
+.sidebar-footer { margin-top: auto; padding-top: 16px; border-top: 1px solid var(--border); }
+.session-pill { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); padding: 6px 10px; margin-bottom: 4px; }
+.session-pill span { color: var(--gold); font-family: var(--font-mono); }
+
+.main-area { margin-left: 220px; flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+
+/* ── PAGE TOPBAR ────────────────────────────────────────── */
+.page-topbar {
+  position: sticky; top: 0; z-index: 50;
+  background: rgba(8,15,28,0.92); backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--border);
+  padding: 0 32px; height: 60px;
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+}
+.ptb-left { display: flex; align-items: center; gap: 14px; }
+.ptb-title { font-family: var(--font-display); font-size: 17px; font-weight: 700; color: var(--white); }
+.ptb-sub { font-size: 12px; color: var(--muted); }
+.mobile-menu-btn { display: none; background: none; border: none; color: var(--white); font-size: 20px; cursor: pointer; padding: 4px 8px; }
+
+/* ── RECEIPT LAYOUT ─────────────────────────────────────── */
+.page-body { padding: 32px; max-width: 1050px; width: 100%; margin: 0 auto; display: grid; grid-template-columns: 1fr 340px; gap: 24px; }
+
+/* thermal/custom print canvas wrapper */
+.receipt-card {
+  background: #fff; color: #111827; border: 1px solid #e5e7eb;
+  border-radius: var(--radius-lg); padding: 36px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05); position: relative;
+}
+.dark-panel {
+  background: var(--navy-2); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 24px 28px; color: var(--white);
+}
+
+/* Header style for receipt */
+.rec-header { text-align: center; border-bottom: 1px solid #e5e7eb; padding-bottom: 24px; margin-bottom: 24px; }
+.rec-logo { font-size: 32px; margin-bottom: 8px; }
+.rec-bizname { font-family: var(--font-display); font-size: 20px; font-weight: 700; color: #111827; text-transform: uppercase; }
+.rec-tagline { font-size: 11px; color: #6b7280; letter-spacing: 0.05em; margin-top: 2px; }
+.rec-meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px; font-size: 11.5px; color: #4b5563; text-align: left; }
+.rec-meta-left { text-align: left; }
+.rec-meta-right { text-align: right; }
+
+/* Txn details list */
+.rec-title-block { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 2px solid #111827; margin-bottom: 20px; }
+.rec-type-badge { font-family: var(--font-display); font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
+.rec-type-badge.buy { color: #059669; }
+.rec-type-badge.sell { color: #d97706; }
+.rec-number { font-family: var(--font-mono); font-size: 14px; font-weight: 600; color: #111827; }
+
+/* ── VOID / CORRECTION WARNING BANNERS ──────────────────── */
+/* Printed on the white receipt-card, so colors are tuned for a light bg
+   (unlike the dark app-shell elsewhere) while staying visually loud. */
+.void-banner {
+  display: none; align-items: flex-start; gap: 12px;
+  background: #fef2f2; border: 2px solid #dc2626; border-radius: var(--radius-md);
+  padding: 14px 18px; margin-bottom: 20px; text-align: left;
+}
+.void-banner.show { display: flex; }
+.void-banner-icon { font-size: 24px; line-height: 1; flex-shrink: 0; }
+.void-banner-title { font-family: var(--font-display); font-size: 14px; font-weight: 800; color: #b91c1c; text-transform: uppercase; letter-spacing: 0.04em; }
+.void-banner-text { font-size: 12px; color: #7f1d1d; line-height: 1.6; margin-top: 4px; }
+.void-banner-link { font-weight: 700; color: #b91c1c; text-decoration: underline; }
+
+/* Side-panel (dark) void notice, mirrors lock-badge styling language */
+.void-badge-dark { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: var(--radius-pill); background: rgba(239,68,68,0.12); color: #fca5a5; border: 1px solid rgba(239,68,68,0.3); font-weight: 600; font-size: 11px; margin-bottom: 18px; }
+
+/* main values row */
+.rec-values-block {
+  background: #f9fafb; border: 1px solid #f3f4f6; border-radius: var(--radius-md);
+  padding: 18px 24px; display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 20px;
+}
+.rec-val-item .lbl { font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
+.rec-val-item .val { font-family: var(--font-display); font-size: 22px; font-weight: 700; }
+.rec-val-item .val.pkr { color: #111827; }
+.rec-val-item .val.usdt { color: #0284c7; }
+.rec-val-item .val.rate { font-size: 18px; color: #4b5563; }
+
+/* items list table-like */
+.rec-table { width: 100%; border-collapse: collapse; margin-bottom: 24px; font-size: 13px; }
+.rec-table td { padding: 10px 0; border-bottom: 1px dashed #f3f4f6; color: #111827; }
+.rec-table tr:last-child td { border-bottom: none; }
+.rec-table td.lbl { color: #6b7280; font-weight: 500; width: 160px; }
+.rec-table td.val { font-weight: 600; text-align: right; }
+.rec-table td.val.mono { font-family: var(--font-mono); font-size: 12px; }
+
+/* footer area */
+.rec-footer { border-top: 1px solid #e5e7eb; padding-top: 20px; text-align: center; }
+.rec-footer-text { font-size: 11px; color: #6b7280; line-height: 1.5; margin-bottom: 16px; }
+
+/* QR block */
+.rec-qr-row { display: flex; align-items: center; justify-content: center; gap: 18px; margin-bottom: 18px; text-align: left; background: #fafafa; padding: 14px 20px; border-radius: var(--radius-md); border: 1px solid #f0f0f0; }
+.rec-qr-img { width: 90px; height: 90px; border: 1px solid #e5e7eb; background: #fff; padding: 3px; border-radius: var(--radius-xs); display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.rec-qr-img img { display: none; } /* qrcode.js fallback <img> hidden; canvas is the visible render */
+.rec-qr-info { flex: 1; }
+.rec-qr-title { font-family: var(--font-display); font-size: 11.5px; font-weight: 700; color: #111827; margin-bottom: 3px; }
+.rec-qr-link { font-family: var(--font-mono); font-size: 10px; color: #0284c7; word-break: break-all; display: block; margin-top: 4px; text-decoration: none; }
+
+/* ── SIDE PANEL DARK STYLES ─────────────────────────────── */
+.pane-title { font-family: var(--font-display); font-size: 13.5px; font-weight: 700; color: var(--white); margin-bottom: 16px; text-transform: uppercase; letter-spacing: 0.05em; }
+.lock-badge { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: var(--radius-pill); background: rgba(16,185,129,0.12); color: var(--green); border: 1px solid rgba(16,185,129,0.25); font-weight: 600; font-size: 11px; margin-bottom: 18px; }
+
+.meta-item { border-bottom: 1px solid var(--border-soft); padding: 10px 0; }
+.meta-item:last-child { border-bottom: none; }
+.meta-lbl { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+.meta-val { font-size: 13px; color: var(--white); font-weight: 500; word-break: break-all; }
+.meta-val.mono { font-family: var(--font-mono); font-size: 11px; color: var(--blue); }
+
+.sc-preview { cursor: pointer; border: 1px solid var(--border); border-radius: var(--radius-sm); position: relative; overflow: hidden; height: 110px; background: var(--navy-3); display: flex; align-items: center; justify-content: center; margin-top: 8px; }
+.sc-preview img { width: 100%; height: 100%; object-fit: cover; }
+.sc-help-text { position: absolute; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; color: #fff; opacity: 0; transition: opacity 0.15s; }
+.sc-preview:hover .sc-help-text { opacity: 1; }
+
+/* ── SCREENSHOT VIEW MODAL ────────────────────────────────  */
+.modal-overlay { position: fixed; inset: 0; background: rgba(8,15,28,0.85); backdrop-filter: blur(6px); z-index: 400; display: none; align-items: center; justify-content: center; padding: 24px; }
+.modal-overlay.show { display: flex; }
+.modal-img-container { max-width: 90vw; max-height: 85vh; position: relative; }
+.modal-img { max-width: 100%; max-height: 80vh; border-radius: var(--radius-md); box-shadow: var(--shadow-lg); border: 2px solid var(--border); }
+.modal-close { position: absolute; top: -45px; right: 0; background: none; border: none; color: #fff; font-size: 32px; cursor: pointer; }
+.modal-caption { text-align: center; font-size: 13px; color: var(--muted); margin-top: 10px; }
+
+/* ── PRINT 80MM ROLL FORMAT ─────────────────────────────── */
+@media print {
+  /* ── UX-FIX 3: Comprehensive print stylesheet ── */
+
+  /* Hide all chrome/navigation elements */
+  .sidebar, .page-topbar, .ptb-right, .ptb-left button, .sidebar-footer,
+  #toastContainer, .mobile-overlay, .btn-primary, .btn-secondary, .btn-danger,
+  .btn-ghost, .mobile-menu-btn, .mobileMenuBtn { display: none !important; }
+
+  /* Clean white page */
+  body, .main-area { background: white !important; color: black !important; margin: 0; }
+
+  /* Full-width layout */
+  .main-area { margin-left: 0 !important; width: 100% !important; min-height: auto !important; }
+  .page-body { grid-template-columns: 1fr !important; padding: 0 !important; margin: 0 !important; max-width: 80mm !important; }
+
+  /* Receipt card: clean bordered box, no shadows */
+  .receipt-card {
+    border: 1px solid #ccc !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    width: 80mm !important;
+    font-size: 12px !important;
+    max-width: 100% !important;
+  }
+
+  /* Hash: wrap long hex strings at any character */
+  .receipt-hash { font-size: 9px !important; word-break: break-all !important; }
+
+  /* Flatten all colors to black-on-white */
+  * { color: black !important; background: white !important; border-color: #ccc !important; }
+
+  /* Keep dark-panel hidden */
+  .dark-panel { display: none !important; }
+
+  /* Page size for thermal roll printer */
+  @page {
+    size: 80mm auto;
+    margin: 4mm 2mm;
+  }
+}
+
+/* ── MOBILE RESPONSIVENESS ──────────────────────────────── */
+.mobile-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 99; }
+.mobile-overlay.show { display: block; }
+
+@media (max-width: 860px) {
+  .page-body { grid-template-columns: 1fr; padding: 16px; }
+}
+@media (max-width: 768px) {
+  .sidebar { left: -240px; }
+  .sidebar.open { left: 0; }
+  .main-area { margin-left: 0; }
+  .mobile-menu-btn { display: block; }
+}
+</style>
+</head>
+<body>
+
+<div class="mobile-overlay" id="mobileOverlay"></div>
+
+<!-- Screenshot view modal -->
+<div class="modal-overlay" id="screenshotModal">
+  <div class="modal-img-container">
+    <button class="modal-close" onclick="closeScreenshotModal()">&times;</button>
+    <img src="" class="modal-img" id="modalImg" alt="Attachment">
+    <div class="modal-caption" id="modalCaption">No Description</div>
+  </div>
+</div>
+
+<div id="toastContainer" aria-live="polite" aria-atomic="true"></div>
+
+<!-- ── APP SHELL ──────────────────────────────────────────── -->
+<div class="app-shell">
+
+  <!-- SIDEBAR (Dynamic profile logo and bizname handled) -->
+  <nav role="navigation" class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <div class="sb-logo" id="sbLogo">⬡</div>
+      <div class="sb-name">
+        <span id="sbBizName">Exchange</span>
+        <small>Management System</small>
+      </div>
+    </div>
+
+    <div class="nav-group-label">Main</div>
+    <a href="dashboard.html" class="nav-item"><span class="nav-icon">📊</span> Dashboard</a>
+    <a href="new-transaction.html" class="nav-item"><span class="nav-icon">➕</span> New Transaction</a>
+    <a href="transactions.html" class="nav-item"><span class="nav-icon">📋</span> All Transactions</a>
+    <a href="clients.html" class="nav-item"><span class="nav-icon">👥</span> Clients KYC</a>
+
+    <div class="nav-group-label">System</div>
+    <a href="chain-integrity.html" class="nav-item"><span class="nav-icon">🔐</span> Chain Integrity</a>
+    <a href="reports.html" class="nav-item"><span class="nav-icon">📑</span> Reports</a>
+    <a href="settings.html" class="nav-item"><span class="nav-icon">⚙️</span> Settings</a>
+    <a href="audit-log-view.html" class="nav-item"><span class="nav-icon">📁</span> Audit Logs</a>
+
+    <div class="sidebar-footer">
+      <div class="session-pill">⏱ Session: <span id="sessionTimer">—</span></div>
+      <button class="nav-item" id="logoutBtn"><span class="nav-icon">🚪</span> Logout</button>
+    </div>
+  </nav>
+
+  <!-- MAIN AREA -->
+  <div class="main-area">
+
+    <!-- TOPBAR -->
+    <div class="page-topbar">
+      <div class="ptb-left">
+        <button class="mobile-menu-btn" id="mobileMenuBtn">☰</button>
+        <div>
+          <div class="ptb-title">📋 Transaction Block Receipt</div>
+          <div class="ptb-sub" id="ptbSub">Receipt view & thermal printing alignment</div>
+        </div>
+      </div>
+      <div class="ptb-right" style="display:flex; gap:10px;">
+        <!-- Resolved Bug 4: Unique button ids, no duplicates -->
+        <button class="btn-secondary btn-sm" id="btnPrintReceipt" onclick="window.print()">🖨️ Print Receipt (80mm)</button>
+        <button class="btn-primary btn-sm" id="btnExportPdf" onclick="downloadReceiptAsPdf()">📥 Download PDF Receipt</button>
+      </div>
+    </div>
+
+    <!-- BODY -->
+    <div class="page-body">
+
+      <!-- LEFT: Physical Receipt Box (printable format) -->
+      <div class="receipt-card" id="receiptCard">
+
+        <div class="rec-header">
+          <div class="rec-logo" id="rBizLogo">⬡</div>
+          <div class="rec-bizname" id="rBizName">Loading Exchange…</div>
+          <div class="rec-tagline" id="rBizSub">Digital currency management node</div>
+          
+          <div class="rec-meta-grid">
+            <div class="rec-meta-left">
+              <div id="rBizAddress">Faisal Town, Lahore</div>
+              <div id="rBizPhone">Ph: +92-300-1234567</div>
+              <div id="rBizWhatsapp">WA: +92-300-1234567</div>
+            </div>
+            <div class="rec-meta-right">
+              <div id="rBizReg">SECP: Loading…</div>
+              <div id="rBizNtn">NTN: Loading…</div>
+              <div id="rDate">Date: Loading…</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- VOID WARNING — shown when THIS transaction has been voided by a later correction entry -->
+        <div class="void-banner" id="voidedBanner">
+          <div class="void-banner-icon">🚫</div>
+          <div>
+            <div class="void-banner-title">This Transaction Has Been Voided</div>
+            <div class="void-banner-text">
+              This block was marked as voided due to a recorded correction. The original transaction below remains permanently in the chain, unmodified, for audit purposes — it is superseded by
+              <a href="#" class="void-banner-link" id="voidedBannerLink">Block #—</a>.
+            </div>
+          </div>
+        </div>
+
+        <!-- CORRECTION NOTICE — shown when THIS record IS itself a void/correction entry -->
+        <div class="void-banner" id="correctionBanner" style="background:#f0fdfa; border-color:#0d9488;">
+          <div class="void-banner-icon">↩️</div>
+          <div>
+            <div class="void-banner-title" style="color:#0f766e;">Void / Correction Entry</div>
+            <div class="void-banner-text" style="color:#115e59;">
+              This is a correction entry, not a new client transaction. It voids
+              <a href="#" class="void-banner-link" id="correctionBannerLink" style="color:#0f766e;">Block #—</a>
+              and explains why in the notes below.
+            </div>
+          </div>
+        </div>
+
+        <div class="rec-title-block">
+          <div class="rec-type-badge" id="rTxnTypeBadge">BUY RECEIPT</div>
+          <div class="rec-number" id="rReceiptNum">EXC-YYYY-NNNNN</div>
+        </div>
+
+        <div class="rec-values-block">
+          <div class="rec-val-item">
+            <div class="lbl">Total Cash PKR</div>
+            <div class="val pkr" id="rValPkr">₨ 0.00</div>
+          </div>
+          <div class="rec-val-item">
+            <div class="lbl">USDT Rate</div>
+            <div class="val rate" id="rValRate">0.00</div>
+          </div>
+          <div class="rec-val-item">
+            <div class="lbl">USDT Volume</div>
+            <div class="val usdt" id="rValUsdt">0.00 USDT</div>
+          </div>
+        </div>
+
+        <table class="rec-table">
+          <tbody>
+            <tr>
+              <td class="lbl">Client Name</td>
+              <td class="val" id="rClientName">—</td>
+            </tr>
+            <tr>
+              <td class="lbl">Client CNIC</td>
+              <td class="val mono" id="rClientCnic">—</td>
+            </tr>
+            <tr id="rBankRow" style="display:none;">
+              <td class="lbl">Bank Detail</td>
+              <td class="val" id="rBankDetail">—</td>
+            </tr>
+            <tr id="rOrderIdRow" style="display:none;">
+              <td class="lbl">Bitget Order ID</td>
+              <td class="val mono" id="rOrderId">—</td>
+            </tr>
+            <tr id="rPaymentRefRow" style="display:none;">
+              <td class="lbl">Payment Ref ID</td>
+              <td class="val mono" id="rPaymentRef">—</td>
+            </tr>
+            <tr id="rNotesRow" style="display:none;">
+              <td class="lbl">Handoff Notes</td>
+              <td class="val" id="rNotes" style="font-style:italic;">—</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- QR Row -->
+        <div class="rec-qr-row">
+          <div class="rec-qr-img" id="rQrImage"></div>
+          <div class="rec-qr-info">
+            <div class="rec-qr-title">🔐 Secure Blockchain Check</div>
+            <div style="font-size:10px; color:#4b5563; line-height:1.4;">Scan this code with compliance instruments to verify receipt origin directly against the tamper-proof sequence.</div>
+            <a href="#" class="rec-qr-link" id="rQrLinkText" target="_blank">verify.html?receipt=...</a>
+          </div>
+        </div>
+
+        <div class="rec-footer">
+          <div class="rec-footer-text" id="rFooterText">This document is locked cryptographically under SHA-256 block chain. Any alteration breaks the system trace, flagging compliance. Thank you for your business.</div>
+          <div style="font-family:var(--font-mono); font-size:9.5px; color:#888;">POWERED BY DEMS BLOCKCHAIN CORE</div>
+        </div>
+
+      </div><!-- /LEFT -->
+
+      <!-- RIGHT: Side metadata blockchain drawer panel -->
+      <div class="dark-panel">
+        <div class="pane-title">⛓ Block Coordinates</div>
+        <div class="lock-badge">✓ CRYPTO BLOCK LOCKED</div>
+        <div class="void-badge-dark" id="voidStatusBadgeDark" style="display:none;">🚫 VOID STATUS</div>
+
+        <div class="meta-item">
+          <div class="meta-lbl">Chain Coordinates</div>
+          <div class="meta-val" id="bChainIndex">Block #—</div>
+        </div>
+        <div class="meta-item" id="bVoidRefRow" style="display:none;">
+          <div class="meta-lbl" id="bVoidRefLbl">Void Reference</div>
+          <div class="meta-val" id="bVoidRef">—</div>
+        </div>
+        <div class="meta-item">
+          <div class="meta-lbl">Block Signature (SHA-256)</div>
+          <div class="meta-val mono" id="bHash" style="color:var(--green);">Calculating…</div>
+        </div>
+        <div class="meta-item">
+          <div class="meta-lbl">Parent Block Hash</div>
+          <div class="meta-val mono" id="bPrevHash">Calculating…</div>
+        </div>
+        <div class="meta-item">
+          <div class="meta-lbl">Screenshot Attachment</div>
+          <div id="bScreenshotArea">
+            <div style="color:var(--muted); font-size:11.5px; font-style:italic;">No screenshot attached.</div>
+          </div>
+        </div>
+
+        <div style="margin-top:28px;">
+          <a class="btn-secondary" href="chain-integrity.html" style="width:100%; font-size:12px;">🔗 Verify Full Chain Integrity</a>
+          <a class="btn-ghost" href="new-transaction.html" style="width:100%; text-align:center; display:block; margin-top:10px;">＋ Add Another Block</a>
+        </div>
+      </div><!-- /RIGHT -->
+
+    </div><!-- /body -->
+  </div><!-- /main area -->
+</div><!-- /app shell -->
+
+<!-- scripts -->
+<script src="db.js"></script>
+<script src="auth.js"></script>
+<script src="profile.js"></script>
+<script src="audit-log.js"></script>
+<script src="hash-engine.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" integrity="sha512-CNgIRecGo7nphbeZ04Sc13ka07paqdeTu0WR1IM4kNcpmBAUSHSQX0FslNhTDadL4znSad3yU50QqZm9qe5kFQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha512-u3hn/HtGEMKTDT4nAWuBAdmNJQ5QaMT9zCHdTkQT5NkEILHQFYQZRGQUbETBMBbrRkKD1XNV1dpPGDYdZqiNw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script>
+'use strict';
+
+// ── STATE ─────────────────────────────────────────────────
+let _receiptNumber = null;
+let _txn = null;
+let _verifyLink = null;
+let _qrDataUrl = null;
+// Void status of the CURRENT receipt, populated by loadReceiptAndProfileDetails()
+// so downloadReceiptAsPdf() can stamp the same warning into the PDF export.
+let _voidStatus = { voided: false, voidChainIndex: null }; // "this txn has been voided by..."
+
+// ── INIT ──────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', async () => {
+  // CRITICAL Security step
+  if (!Auth.requireAuth()) return;
+
+  await DB.init();
+
+  // Load profile for sidebar
+  try {
+    const p = await Profile.get();
+    if (p) {
+      document.getElementById('sbLogo').textContent = p.logoEmoji || '⬡';
+      document.getElementById('sbBizName').textContent = p.businessName || 'Exchange';
+    }
+  } catch(e) {}
+
+  setupSession();
+  setupMobileNav();
+  setupLogout();
+
+  // Load transaction parameters
+  const urlParams = new URLSearchParams(window.location.search);
+  _receiptNumber = urlParams.get('receipt');
+
+  if (!_receiptNumber) {
+    Toast.show('Receipt number parameter missing.', 'error');
+    document.getElementById('receiptCard').innerHTML = '<div style="padding:100px 20px; text-align:center; color:var(--muted);">No receipt specifies. Please use top links.</div>';
+    return;
+  }
+
+  await loadReceiptAndProfileDetails();
+});
+
+// ── LOAD RECEIPTS & CORRELATED DETAILS ───────────────────────────────────
+async function loadReceiptAndProfileDetails() {
+  try {
+    // 1. Get Txn block
+    _txn = await DB.get(`SELECT * FROM transactions WHERE receipt_number = ?`, [_receiptNumber]);
+
+    if (!_txn) {
+      Toast.show(`Block ${_receiptNumber} not found.`, 'error');
+      document.getElementById('receiptCard').innerHTML = `<div style="padding:100px 20px; text-align:center; color:var(--muted);">Block ${_receiptNumber} has not been found in sql database.</div>`;
+      return;
+    }
+
+    // 2. Get Profile details using camelCase fields securely
+    const p = await Profile.get();
+    if (p) {
+      document.getElementById('rBizLogo').textContent = p.logoEmoji || '⬡';
+      document.getElementById('rBizName').textContent = p.businessName || 'DEM EXCHANGE';
+      if (p.receiptFooter) document.getElementById('rFooterText').textContent = p.receiptFooter;
+
+      // Register text Meta blocks
+      document.getElementById('rBizAddress').textContent = `${p.area || ''}, ${p.city || ''}`;
+      document.getElementById('rBizPhone').textContent = `Ph: ${p.phone || '—'}`;
+      document.getElementById('rBizWhatsapp').textContent = `WA: ${p.whatsapp || '—'}`;
+
+      document.getElementById('rBizReg').textContent = `SECP: ${p.secpNumber || 'Exempt'}`;
+      document.getElementById('rBizNtn').textContent = `NTN: ${p.ntnNumber || '—'}`;
+    }
+
+    // 3. Bind Transaction attributes
+    document.getElementById('rReceiptNum').textContent = _txn.receipt_number;
+    document.getElementById('rDate').textContent = `Date: ${new Date(_txn.timestamp).toLocaleString('en-PK', {hour12: true})}`;
+
+    const isBuy = _txn.txn_type === 'buy';
+    const txnTypeBadge = document.getElementById('rTxnTypeBadge');
+    txnTypeBadge.textContent = isBuy ? 'BUY RECEIPT' : 'SELL RECEIPT';
+    txnTypeBadge.className = 'rec-type-badge ' + (isBuy ? 'buy' : 'sell');
+
+    document.getElementById('rValPkr').textContent = `₨ ${parseFloat(_txn.amount_pkr).toLocaleString('en-PK', {minimumFractionDigits: 2})}`;
+    document.getElementById('rValRate').textContent = parseFloat(_txn.exchange_rate).toFixed(3);
+    document.getElementById('rValUsdt').textContent = `${parseFloat(_txn.amount_usdt).toFixed(2)} USDT`;
+
+    document.getElementById('rClientName').textContent = _txn.client_name || 'Walk-in Client';
+    document.getElementById('rClientCnic').textContent = _txn.client_cnic || '—';
+
+    // Bank detailed layout
+    if (_txn.bank_name) {
+      document.getElementById('rBankRow').style.display = '';
+      document.getElementById('rBankDetail').textContent = `${_txn.bank_name} ${_txn.bank_last4 ? '(last 4: ' + _txn.bank_last4 + ')' : ''}`;
+    }
+
+    // Secondary IDs
+    if (_txn.order_id) {
+      document.getElementById('rOrderIdRow').style.display = '';
+      document.getElementById('rOrderId').textContent = _txn.order_id;
+    }
+    if (_txn.payment_ref) {
+      document.getElementById('rPaymentRefRow').style.display = '';
+      document.getElementById('rPaymentRef').textContent = _txn.payment_ref;
+    }
+    if (_txn.notes) {
+      document.getElementById('rNotesRow').style.display = '';
+      document.getElementById('rNotes').textContent = _txn.notes;
+    }
+
+    // 4. Set blockchain coordinate markers
+    document.getElementById('bChainIndex').textContent = `Block #${_txn.chain_index}`;
+    document.getElementById('bHash').textContent = _txn.hash.toUpperCase();
+    document.getElementById('bPrevHash').textContent = _txn.prev_hash.toUpperCase();
+
+    // 4b. Void / Correction status — two independent cases:
+    //   (a) THIS record is itself a void/correction entry (_txn.is_void) —
+    //       show the teal "Correction Entry" notice and link back to the
+    //       original it voids.
+    //   (b) THIS record is a normal transaction that a LATER correction
+    //       entry has voided — look that up via HashEngine.getVoidInfo()
+    //       and show the red "THIS TRANSACTION HAS BEEN VOIDED" banner
+    //       with a link forward to the correction entry.
+    // These are mutually exclusive: a void entry is never itself voidable
+    // (HashEngine.voidTransaction() refuses to void an is_void=1 record),
+    // so at most one of the two banners will ever show.
+    if (_txn.is_void) {
+      const correctionBanner = document.getElementById('correctionBanner');
+      const correctionLink = document.getElementById('correctionBannerLink');
+      correctionBanner.classList.add('show');
+      correctionLink.textContent = `Block #${_txn.voids_chain_index}`;
+
+      // Look up the original's receipt number for a working link
+      try {
+        const original = await DB.get(`SELECT receipt_number FROM transactions WHERE chain_index = ?`, [_txn.voids_chain_index]);
+        if (original) {
+          correctionLink.href = `receipt.html?receipt=${encodeURIComponent(original.receipt_number)}`;
+        }
+      } catch (e) { /* link stays as '#' if lookup fails — non-fatal */ }
+
+      document.getElementById('voidStatusBadgeDark').style.display = 'inline-flex';
+      document.getElementById('voidStatusBadgeDark').textContent = '↩️ CORRECTION ENTRY';
+      document.getElementById('bVoidRefRow').style.display = '';
+      document.getElementById('bVoidRefLbl').textContent = 'Voids Block';
+      document.getElementById('bVoidRef').innerHTML = `<a href="${correctionLink.href}" style="color:var(--blue);">Block #${_txn.voids_chain_index}</a>`;
+
+    } else {
+      const voidInfo = await HashEngine.getVoidInfo(_txn.chain_index);
+      if (voidInfo.voided) {
+        _voidStatus = { voided: true, voidChainIndex: voidInfo.voidChainIndex };
+
+        const voidedBanner = document.getElementById('voidedBanner');
+        const voidedLink = document.getElementById('voidedBannerLink');
+        voidedBanner.classList.add('show');
+        voidedLink.textContent = `Block #${voidInfo.voidChainIndex}`;
+        voidedLink.href = `receipt.html?receipt=${encodeURIComponent(voidInfo.voidReceiptNumber)}`;
+
+        document.getElementById('voidStatusBadgeDark').style.display = 'inline-flex';
+        document.getElementById('voidStatusBadgeDark').textContent = '🚫 VOIDED';
+        document.getElementById('bVoidRefRow').style.display = '';
+        document.getElementById('bVoidRefLbl').textContent = 'Voided By';
+        document.getElementById('bVoidRef').innerHTML = `<a href="${voidedLink.href}" style="color:#fca5a5;">Block #${voidInfo.voidChainIndex}</a>`;
+      }
+    }
+
+    // Screenshot attachment embedding
+    if (_txn.screenshot_path) {
+      document.getElementById('bScreenshotArea').innerHTML = `
+        <div class="sc-preview" onclick="openScreenshotModal('${_txn.screenshot_path}', 'Receipt screenshot for EXC-${_txn.receipt_number}')">
+          <img src="${_txn.screenshot_path}" alt="Screenshot">
+          <div class="sc-help-text">🔎 Click to enlarge</div>
+        </div>
+      `;
+    }
+
+    // 5. Dynamic QR Link calculation
+    // Parsed from window.location.origin dynamically to avoid localhost hardcoding.
+    const deployedBase = window.location.origin;
+    const verifyLink = `${deployedBase}/verify.html?receipt=${encodeURIComponent(_txn.receipt_number)}`;
+    _verifyLink = verifyLink;
+
+    // Set text link values
+    const linkEl = document.getElementById('rQrLinkText');
+    linkEl.href = verifyLink;
+    linkEl.innerHTML = `${window.location.host}/verify.html?receipt=${_txn.receipt_number.substring(0,12)}…`;
+
+    // Offline client-side QR generation (no external network call).
+    // Encodes the EXACT same verifyLink used by the text link above.
+    const qrContainer = document.getElementById('rQrImage');
+    qrContainer.innerHTML = '';
+    new QRCode(qrContainer, {
+      text: verifyLink,
+      width: 84,
+      height: 84,
+      colorDark: '#0e1a2e',
+      colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel.M
+    });
+    // Capture a PNG data URL of the generated QR for reuse in the PDF export.
+    const qrCanvas = qrContainer.querySelector('canvas');
+    _qrDataUrl = qrCanvas ? qrCanvas.toDataURL('image/png') : null;
+
+    // Track write page metrics audit
+    AuditLog.add('RECEIPT_VIEWED', `Receipt: ${_txn.receipt_number}`);
+
+  } catch(e) {
+    Toast.show('Crash loading receipt: ' + e.message, 'error');
+  }
+}
+
+// ── DOWNLOAD RECEIPT AS PDF ───────────────────────────────
+function downloadReceiptAsPdf() {
+  if (!_txn) return;
+
+  if (!window.jspdf || !window.jspdf.jsPDF) {
+    Toast.show('PDF engine still loading — please try again in a moment.', 'error');
+    return;
+  }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+
+  const logo = document.getElementById('rBizLogo').textContent;
+  const biz  = document.getElementById('rBizName').textContent;
+  const sub  = document.getElementById('rBizSub').textContent;
+  const secp = document.getElementById('rBizReg').textContent;
+  const ntn  = document.getElementById('rBizNtn').textContent;
+
+  let y = 20;
+
+  // Business header
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(18);
+  doc.text(`${logo}  ${biz}`, 105, y, { align: 'center' });
+  y += 7;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  doc.setTextColor(110);
+  doc.text(sub, 105, y, { align: 'center' });
+  y += 5;
+  doc.text(`${secp}    |    ${ntn}`, 105, y, { align: 'center' });
+  y += 8;
+
+  doc.setDrawColor(200);
+  doc.line(15, y, 195, y);
+  y += 9;
+
+  // Receipt number / date
+  doc.setTextColor(20);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(13);
+  doc.text(`Receipt: ${_txn.receipt_number}`, 15, y);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  doc.text(`Date: ${new Date(_txn.timestamp).toLocaleString('en-PK', { hour12: true })}`, 195, y, { align: 'right' });
+  y += 10;
+
+  // Void / Correction warning — printed prominently in red so a downloaded
+  // PDF of a voided transaction carries the same warning as the on-screen
+  // banner. Mirrors the two mutually-exclusive cases handled on-page.
+  if (_txn.is_void) {
+    doc.setFillColor(240, 253, 250);
+    doc.setDrawColor(13, 148, 136);
+    doc.rect(15, y - 5, 180, 12, 'FD');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(15, 118, 110);
+    doc.text(`VOID / CORRECTION ENTRY — Voids Block #${_txn.voids_chain_index}`, 105, y + 2, { align: 'center' });
+    y += 14;
+  } else if (_voidStatus.voided) {
+    doc.setFillColor(254, 242, 242);
+    doc.setDrawColor(220, 38, 38);
+    doc.rect(15, y - 5, 180, 12, 'FD');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(185, 28, 28);
+    doc.text(`THIS TRANSACTION HAS BEEN VOIDED — See Block #${_voidStatus.voidChainIndex}`, 105, y + 2, { align: 'center' });
+    y += 14;
+  }
+
+  // Key/value detail rows
+  const rows = [
+    ['Transaction Type', _txn.txn_type === 'buy' ? 'BUY (Client Sells USDT)' : 'SELL (Client Buys USDT)'],
+    ['Client Name', _txn.client_name || 'Walk-in Client'],
+    ['Client CNIC', _txn.client_cnic || '—'],
+    ['Amount (PKR)', `Rs ${parseFloat(_txn.amount_pkr).toLocaleString('en-PK', { minimumFractionDigits: 2 })}`],
+    ['Exchange Rate', parseFloat(_txn.exchange_rate).toFixed(3)],
+    ['Amount (USDT)', `${parseFloat(_txn.amount_usdt).toFixed(2)} USDT`],
+    ['Bank Reference', _txn.bank_name ? `${_txn.bank_name}${_txn.bank_last4 ? ' (last 4: ' + _txn.bank_last4 + ')' : ''}` : '—'],
+    ['Payment Ref', _txn.payment_ref || '—'],
+    ['Bitget Order ID', _txn.order_id || '—']
+  ];
+
+  doc.setFontSize(10.5);
+  rows.forEach(([label, value]) => {
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(110);
+    doc.text(label, 15, y);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(20);
+    doc.text(String(value), 195, y, { align: 'right' });
+    y += 7;
+  });
+
+  y += 3;
+  doc.setDrawColor(200);
+  doc.line(15, y, 195, y);
+  y += 9;
+
+  // Full SHA-256 hash
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(20);
+  doc.text('Block Hash (SHA-256):', 15, y);
+  y += 5;
+  doc.setFont('courier', 'normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(16, 150, 100);
+  doc.text(_txn.hash.toUpperCase(), 15, y, { maxWidth: 180 });
+  y += 12;
+
+  // QR code (same verify URL as the on-page text link)
+  if (_qrDataUrl) {
+    doc.addImage(_qrDataUrl, 'PNG', 15, y, 30, 30);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(110);
+    doc.text('Scan to verify this receipt against the tamper-proof chain.', 50, y + 8, { maxWidth: 130 });
+    if (_verifyLink) {
+      doc.setFont('courier', 'normal');
+      doc.setFontSize(7.5);
+      doc.setTextColor(2, 132, 199);
+      doc.text(_verifyLink, 50, y + 16, { maxWidth: 130 });
+    }
+    y += 36;
+  }
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(150);
+  doc.text('POWERED BY DEMS BLOCKCHAIN CORE — Cryptographically Chained (DEMS-v1)', 105, 285, { align: 'center' });
+
+  doc.save(`Receipt-${_txn.receipt_number}.pdf`);
+  AuditLog.add('RECEIPT_PDF_DOWNLOADED', `Receipt: ${_txn.receipt_number}`);
+  Toast.show('📥 PDF receipt downloaded.', 'success');
+}
+
+// ── SCREENSHOT VIEW MODAL LAYOUT ─────────────────────────
+function openScreenshotModal(src, caption) {
+  document.getElementById('modalImg').src = src;
+  document.getElementById('modalCaption').textContent = caption;
+  document.getElementById('screenshotModal').classList.add('show');
+}
+function closeScreenshotModal() {
+  document.getElementById('screenshotModal').classList.remove('show');
+}
+
+// ── CORE UTILS ───────────────────────────────────────────
+function setTxt(id, v) { const e = document.getElementById(id); if (e) e.textContent = v; }
+
+function setupSession() {
+  function tick() {
+    try {
+      const raw = localStorage.getItem('dems_session');
+      if (!raw) return;
+      const s = JSON.parse(raw);
+      const left = Math.max(0, Math.floor((s.expiresAt - Date.now()) / 1000));
+      const m = Math.floor(left / 60), sec = left % 60;
+      setTxt('sessionTimer', m + ':' + String(sec).padStart(2 ,'0'));
+    } catch(e) {}
+  }
+  tick(); setInterval(tick, 1000);
+}
+
+function setupLogout() {
+  document.getElementById('logoutBtn').addEventListener('click', () => {
+    Auth.logout();
+  });
+}
+
+function setupMobileNav() {
+  const btn = document.getElementById('mobileMenuBtn');
+  const sb  = document.getElementById('sidebar');
+  const ov  = document.getElementById('mobileOverlay');
+  if (!btn) return;
+  btn.addEventListener('click', () => { sb.classList.toggle('open'); ov.classList.toggle('show'); });
+  ov.addEventListener('click', () => { sb.classList.remove('open'); ov.classList.remove('show'); });
+}
+
+const Toast = {
+  show(msg, type='info', dur=3500) {
+    const c = document.getElementById('toastContainer');
+    const t = document.createElement('div');
+    const icons = { success:'✅', error:'❌', info:'ℹ️', warning:'⚠️' };
+    t.className = `toast ${type}`;
+    t.innerHTML = `<span>${icons[type]||'ℹ️'}</span><span>${msg}</span>`;
+    c.appendChild(t);
+    setTimeout(() => { t.style.opacity='0'; t.style.transition='opacity 0.3s'; setTimeout(()=>t.remove(),300); }, dur);
+  }
+};
+</script>
+</body>
+</html>

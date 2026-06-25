@@ -1,0 +1,1786 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy"
+  content="default-src 'self';
+           script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com;
+           style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com;
+           font-src https://fonts.gstatic.com;
+           connect-src 'self' https://worldtimeapi.org;
+           img-src 'self' data: blob:;
+           object-src 'none';
+           base-uri 'self';">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reports & Financial Analytics — DEMS</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<style>
+/* ── LAYOUT ─────────────────────────────────────────────── */
+.app-shell { display: flex; min-height: 100vh; }
+
+.sidebar {
+  width: 220px; flex-shrink: 0;
+  background: var(--navy-2);
+  border-right: 1px solid var(--border);
+  padding: 24px 12px;
+  position: fixed; top: 0; left: 0; height: 100vh;
+  overflow-y: auto; z-index: 100;
+  display: flex; flex-direction: column;
+  transition: left 0.25s;
+}
+.sidebar-brand {
+  display: flex; align-items: center; gap: 10px;
+  padding: 0 8px 20px; border-bottom: 1px solid var(--border); margin-bottom: 20px;
+}
+.sb-logo { font-size: 22px; color: var(--blue); }
+.sb-name { font-family: var(--font-display); font-size: 15px; font-weight: 700; color: var(--white); line-height: 1.1; }
+.sb-name small { display: block; color: var(--muted); font-size: 10px; font-weight: 400; }
+.nav-group-label {
+  font-size: 10px; font-weight: 600; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.1em;
+  padding: 0 8px; margin: 16px 0 6px;
+}
+.nav-item {
+  display: flex; align-items: center; gap: 9px;
+  padding: 9px 10px; border-radius: var(--radius-sm);
+  font-size: 13px; font-weight: 500; color: var(--muted);
+  text-decoration: none; transition: all 0.15s; margin-bottom: 2px;
+  background: none; border: none; cursor: pointer; width: 100%; text-align: left;
+}
+.nav-item:hover { background: var(--blue-glow); color: var(--white); text-decoration: none; }
+.nav-item.active { background: var(--blue-glow); color: var(--blue); border: 1px solid rgba(14,165,233,0.2); }
+.nav-icon { font-size: 15px; width: 18px; text-align: center; flex-shrink: 0; }
+.sidebar-footer { margin-top: auto; padding-top: 16px; border-top: 1px solid var(--border); }
+.session-pill { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); padding: 6px 10px; margin-bottom: 4px; }
+.session-pill span { color: var(--gold); font-family: var(--font-mono); }
+
+.main-area { margin-left: 220px; flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+
+/* ── PAGE TOPBAR ────────────────────────────────────────── */
+.page-topbar {
+  position: sticky; top: 0; z-index: 50;
+  background: rgba(8,15,28,0.92); backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--border);
+  padding: 0 32px; height: 60px;
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+}
+.ptb-left { display: flex; align-items: center; gap: 14px; }
+.ptb-title { font-family: var(--font-display); font-size: 17px; font-weight: 700; color: var(--white); }
+.ptb-sub { font-size: 12px; color: var(--muted); }
+.mobile-menu-btn { display: none; background: none; border: none; color: var(--white); font-size: 20px; cursor: pointer; padding: 4px 8px; }
+
+/* ── REPORT VIEW LAYOUT ─────────────────────────────────── */
+.page-body { padding: 32px; max-width: 1200px; width: 100%; margin: 0 auto; }
+
+.section-card {
+  background: var(--navy-2); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 24px 28px; margin-bottom: 24px;
+}
+.section-title {
+  font-family: var(--font-display); font-size: 14px; font-weight: 700; color: var(--blue);
+  text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 20px;
+  padding-bottom: 8px; border-bottom: 1px solid var(--border-soft);
+}
+
+.report-controls { display: grid; grid-template-columns: 1.5fr 1fr 1fr auto; gap: 16px; align-items: flex-end; }
+.form-group { margin-bottom: 14px; }
+.form-group:last-child { margin-bottom: 0; }
+.form-label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; display: block; }
+
+/* Metrics stats summary grid */
+.metric-report-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin: 24px 0; }
+.metric-report-grid.cols-4 { grid-template-columns: repeat(4, 1fr); }
+.metric-box { background: var(--navy-3); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 18px 20px; }
+.mb-lbl { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.mb-val { font-family: var(--font-display); font-size: 20px; font-weight: 700; margin-top: 4px; }
+
+/* Interactive SVG/Chart.js Chart Container */
+.chart-card { background: var(--navy-2); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px; margin-bottom: 24px; position: relative; }
+.chart-container { width: 100%; height: 260px; min-height: 260px; margin-top: 14px; position: relative; }
+.chart-container canvas { max-width: 100%; }
+.chart-legend { display: flex; justify-content: center; gap: 18px; font-size: 11px; font-weight: 600; margin-top: 12px; }
+.legend-item { display: flex; align-items: center; gap: 6px; }
+.legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+.pane-title { font-family: var(--font-display); font-size: 13.5px; font-weight: 700; color: var(--white); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
+
+/* ── TABS ───────────────────────────────────────────────── */
+.tabs-bar {
+  display: flex; gap: 4px; margin-bottom: 24px; border-bottom: 1px solid var(--border);
+  overflow-x: auto; -ms-overflow-style: none; scrollbar-width: none;
+}
+.tabs-bar::-webkit-scrollbar { display: none; }
+.tab-btn {
+  background: none; border: none; color: var(--muted);
+  font-family: var(--font-display); font-size: 12.5px; font-weight: 600;
+  padding: 12px 18px; cursor: pointer; border-bottom: 2px solid transparent;
+  white-space: nowrap; transition: all 0.15s;
+}
+.tab-btn:hover { color: var(--white); }
+.tab-btn.active { color: var(--blue); border-bottom-color: var(--blue); }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* ── DARK DATA TABLES (log / clients / tax) ──────────────── */
+.dark-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.dark-table th {
+  background: var(--navy-3); color: var(--muted); font-weight: 600;
+  text-transform: uppercase; font-size: 10px; letter-spacing: 0.05em;
+  padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border);
+  position: sticky; top: 0;
+}
+.dark-table td { padding: 9px 12px; border-bottom: 1px solid var(--border-soft); color: var(--white); }
+.dark-table tr:hover td { background: var(--navy-3); }
+.dark-table td.mono { font-family: var(--font-mono); font-size: 11px; color: var(--blue); }
+.table-scroll { overflow-x: auto; max-height: 520px; overflow-y: auto; border: 1px solid var(--border-soft); border-radius: var(--radius-sm); }
+
+/* Report Document presentation (bank statement) */
+.statement-doc {
+  background: #fff; color: #111827; border: 1px solid #e5e7eb;
+  border-radius: var(--radius-lg); padding: 48px; min-height: 400px;
+  box-shadow: var(--shadow-lg); display: none;
+}
+.statement-doc.show { display: block; }
+
+.doc-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #111827; padding-bottom: 24px; margin-bottom: 28px; }
+.doc-brand { display: flex; align-items: center; gap: 12px; }
+.doc-logo { font-size: 32px; color: #111827; }
+.doc-name { font-family: var(--font-display); font-size: 20px; font-weight: 700; text-transform: uppercase; }
+.doc-title { text-align: right; font-family: var(--font-display); }
+.doc-title h2 { font-size: 18px; color: #111827; font-weight: 700; text-transform: uppercase; }
+.doc-title .range { font-size: 12px; color: #6b7280; margin-top: 4px; }
+
+.doc-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-bottom: 28px; background: #f9fafb; border: 1px solid #f3f4f6; border-radius: var(--radius-md); padding: 18px 24px; }
+.dg-item { }
+.dg-label { font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; }
+.dg-value { font-family: var(--font-display); font-size: 18px; font-weight: 700; color: #111827; margin-top: 2px; }
+
+.doc-table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 12.5px; }
+.doc-table th { background: #f3f4f6; color: #4b5563; font-weight: 600; text-transform: uppercase; font-size: 10px; letter-spacing: 0.05em; padding: 10px 14px; text-align: left; border-bottom: 1px solid #e5e7eb; }
+.doc-table td { padding: 10px 14px; border-bottom: 1px dashed #e5e7eb; color: #111827; }
+.doc-table tr:last-child td { border-bottom: none; }
+.doc-table td.mono { font-family: var(--font-mono); font-size: 11px; }
+
+/* ── VOID STATUS INDICATORS (transaction log & statement tables) ── */
+.void-badge-report {
+  display: inline-block; padding: 1px 6px; border-radius: 4px;
+  font-size: 9.5px; font-weight: 700; letter-spacing: 0.04em;
+  text-transform: uppercase; white-space: nowrap; margin-left: 5px;
+}
+.void-badge-report.is-void-entry {
+  background: rgba(13,148,136,0.15); color: #5eead4;
+  border: 1px solid rgba(13,148,136,0.3);
+}
+.void-badge-report.is-voided {
+  background: rgba(239,68,68,0.12); color: #fca5a5;
+  border: 1px solid rgba(239,68,68,0.25);
+}
+/* Strikethrough amounts in voided rows */
+.voided-amount { text-decoration: line-through; opacity: 0.45; }
+/* Void-count footnote under metric boxes */
+.metric-void-note {
+  font-size: 10px; color: rgba(252,165,165,0.7); margin-top: 5px;
+  font-family: var(--font-mono);
+}
+
+/* ── PRINT EXECUTIVE PDF STYLES ─────────────────────────── */
+@media print {
+  body { background: #fff; color: #000; }
+  .sidebar, .page-topbar, .tabs-bar, .section-card, .chart-card, .mobile-overlay, #toastContainer { display: none !important; }
+  .main-area { margin-left: 0 !important; width: 100% !important; min-height: auto !important; }
+  .page-body { padding: 0 !important; margin: 0 !important; max-width: 100% !important; }
+  .tab-panel { display: none !important; }
+  #tab-statement { display: block !important; }
+  .statement-doc { display: block !important; border: none !important; box-shadow: none !important; padding: 0 !important; }
+
+  @page {
+    size: A4 portrait;
+    margin: 15mm 15mm 20mm 15mm;
+  }
+}
+
+/* ── MOBILE OVERLAY ─────────────────────────────────────── */
+.mobile-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 99; }
+.mobile-overlay.show { display: block; }
+
+@media (max-width: 900px) {
+  .report-controls { grid-template-columns: 1fr 1fr; }
+  .metric-report-grid, .metric-report-grid.cols-4 { grid-template-columns: 1fr; }
+  .doc-grid { grid-template-columns: 1fr 1fr; }
+  .export-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 768px) {
+  .sidebar { left: -240px; }
+  .sidebar.open { left: 0; }
+  .main-area { margin-left: 0; }
+  .mobile-menu-btn { display: block; }
+}
+</style>
+</head>
+<body>
+
+<div class="mobile-overlay" id="mobileOverlay"></div>
+
+<!-- toast -->
+<div id="toastContainer" aria-live="polite" aria-atomic="true" style="position: fixed; top: 76px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 8px;"></div>
+
+<!-- ── APP SHELL ──────────────────────────────────────────── -->
+<div class="app-shell">
+
+  <!-- SIDEBAR -->
+  <nav role="navigation" class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <div class="sb-logo" id="sbLogo">⬡</div>
+      <div class="sb-name">
+        <span id="sbBizName">Exchange</span>
+        <small>Management System</small>
+      </div>
+    </div>
+
+    <div class="nav-group-label">Main</div>
+    <a href="dashboard.html" class="nav-item"><span class="nav-icon">📊</span> Dashboard</a>
+    <a href="new-transaction.html" class="nav-item"><span class="nav-icon">➕</span> New Transaction</a>
+    <a href="transactions.html" class="nav-item"><span class="nav-icon">📋</span> All Transactions</a>
+    <a href="clients.html" class="nav-item"><span class="nav-icon">👥</span> Clients KYC</a>
+
+    <div class="nav-group-label">System</div>
+    <a href="chain-integrity.html" class="nav-item"><span class="nav-icon">🔐</span> Chain Integrity</a>
+    <a href="reports.html" class="nav-item active" aria-current="page"><span class="nav-icon">📑</span> Reports</a>
+    <a href="settings.html" class="nav-item"><span class="nav-icon">⚙️</span> Settings</a>
+    <a href="audit-log-view.html" class="nav-item"><span class="nav-icon">📁</span> Audit Logs</a>
+
+    <div class="sidebar-footer">
+      <div class="session-pill">⏱ Session: <span id="sessionTimer">—</span></div>
+      <button class="nav-item" id="logoutBtn"><span class="nav-icon">🚪</span> Logout</button>
+    </div>
+  </nav>
+
+  <!-- MAIN AREA -->
+  <div class="main-area">
+
+    <!-- TOPBAR -->
+    <div class="page-topbar">
+      <div class="ptb-left">
+        <button class="mobile-menu-btn" id="mobileMenuBtn">☰</button>
+        <div>
+          <div class="ptb-title">📑 Reports & Statements</div>
+          <div class="ptb-sub" id="ptbSub">Generate visual reports, export audit-safe PDFs</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BODY -->
+    <div class="page-body">
+
+      <!-- TAB NAVIGATION -->
+      <div class="tabs-bar" id="tabsBar">
+        <button class="tab-btn active" data-tab="statement">📜 Ledger Statement</button>
+        <button class="tab-btn" data-tab="volume">📈 Volume Report</button>
+        <button class="tab-btn" data-tab="log">📋 Transaction Log</button>
+        <button class="tab-btn" data-tab="clients">👥 Client Report</button>
+        <button class="tab-btn" data-tab="rate">📐 Rate Analysis</button>
+        <button class="tab-btn" data-tab="tax">🧾 FBR / Tax</button>
+        <button class="tab-btn" data-tab="export">📤 Export</button>
+      </div>
+
+      <!-- ════════════════════════════════════════════════════
+           TAB: LEDGER STATEMENT (bank-statement export — unchanged)
+           ════════════════════════════════════════════════════ -->
+      <div class="tab-panel active" id="tab-statement">
+
+        <!-- Configurations Panel -->
+        <div class="section-card">
+          <div class="section-title">📊 Build Ledger Statement</div>
+          <div class="report-controls">
+
+            <div class="form-group">
+              <label class="form-label">Report Statement Type</label>
+              <select class="form-input" id="fReportType">
+                <option value="financial">💰 Chronological Financial Summary</option>
+                <option value="buysell">📥 Buy/Sell Volume Analytics</option>
+                <option value="bankVolume">🏛️ Banking Channel Breakdown</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Start Date</label>
+              <input type="date" class="form-input" id="fStartDate">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">End Date</label>
+              <input type="date" class="form-input" id="fEndDate">
+            </div>
+
+            <div style="display:flex; gap:10px;">
+              <button class="btn-primary" onclick="generateReport()">📅 Run Statement</button>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Live metrics and dynamic SVG line chart -->
+        <div id="visualReportSection" style="display:none;">
+
+          <div class="metric-report-grid">
+            <div class="metric-box">
+              <div class="mb-lbl">Period Volume PKR</div>
+              <div class="mb-val" id="metPkr" style="color:var(--white);">₨ 0</div>
+            </div>
+            <div class="metric-box">
+              <div class="mb-lbl">Average Exchange Rate</div>
+              <div class="mb-val" id="metRate" style="color:var(--blue);">0.00</div>
+            </div>
+            <div class="metric-box">
+              <div class="mb-lbl">Activity Count</div>
+              <div class="mb-val" id="metCount">0 Blocks Chained</div>
+            </div>
+          </div>
+
+          <div class="chart-card">
+            <div class="pane-title">📊 Daily Buy/Sell Volume Trends</div>
+
+            <!-- Pure SVG line and bar node -->
+            <div class="chart-container" id="svgChartContainer">
+              <!-- Dynamic SVG chart injected here -->
+            </div>
+
+            <div class="chart-legend">
+              <div class="legend-item"><div class="legend-dot" style="background:var(--green);"></div> Buy Volume</div>
+              <div class="legend-item"><div class="legend-dot" style="background:var(--gold);"></div> Sell Volume</div>
+            </div>
+          </div>
+
+          <div style="display:flex; justify-content:flex-end; gap:10px; margin-bottom: 24px; flex-wrap: wrap;">
+            <button class="btn-secondary" onclick="window.print()">🖨️ Export as Executive PDF</button>
+            <button class="btn-secondary" onclick="exportReportAsCsv()">📄 Download Statement CSV</button>
+            <button class="btn-primary" onclick="exportStatementAsExcel()">📊 Download Statement Excel (.xlsx)</button>
+          </div>
+
+        </div>
+
+        <!-- Executive Printable Statement Document (A4 Grid formatted) -->
+        <div class="statement-doc" id="statementHtmlDoc">
+
+          <div class="doc-header">
+            <div class="doc-brand">
+              <div class="doc-logo" id="dLogo">⬡</div>
+              <div>
+                <div class="doc-name" id="dBizName">Loading Exchange…</div>
+                <div style="font-size:10px; color:#4b5563; margin-top:2px;" id="dBizContact">Faisal Town, Lahore</div>
+              </div>
+            </div>
+            <div class="doc-title">
+              <h2>Financial Ledger Statement</h2>
+              <div class="range" id="dStatementDateRange">Statement range: All dates</div>
+            </div>
+          </div>
+
+          <div class="doc-grid">
+            <div class="dg-item">
+              <div class="dg-label">Total Volume (PKR)</div>
+              <div class="dg-value" id="dTotalPkr">₨ 0.00</div>
+            </div>
+            <div class="dg-item">
+              <div class="dg-label">USDT Chained Vol</div>
+              <div class="dg-value" id="dTotalUsdt">0.00 USDT</div>
+            </div>
+            <div class="dg-item">
+              <div class="dg-label">Average Exchange Rate</div>
+              <div class="dg-value" id="dAvgRate">0.00</div>
+            </div>
+            <div class="dg-item">
+              <div class="dg-label">Locked Block Counts</div>
+              <div class="dg-value" id="dBlockCounts">0 Blocks</div>
+            </div>
+            <div class="dg-item">
+              <div class="dg-label">Total Profit (PKR)</div>
+              <div class="dg-value" id="dTotalProfit">—</div>
+            </div>
+          </div>
+
+          <h3 style="color:#111827; font-size:13px; font-weight:700; text-transform:uppercase; margin-bottom:12px;">Chained Blocks Included</h3>
+
+          <table class="doc-table">
+            <thead>
+              <tr>
+                <th>Block</th>
+                <th>Receipt Number</th>
+                <th>Type</th>
+                <th>Client Name & CNIC</th>
+                <th>Pkr Amount</th>
+                <th>Rate</th>
+                <th>Usdt Amount</th>
+                <th>Profit (PKR)</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="statementTableBody">
+              <!-- Table statement elements -->
+            </tbody>
+          </table>
+
+          <!-- Document signature placeholder -->
+          <div style="margin-top:60px; display:flex; justify-content:space-between; font-size:11px; color:#4b5563;">
+            <div>
+              <div>Statement Prepared on: <strong id="docDatePrep">Ex-Time</strong></div>
+              <div style="margin-top:4px;">Signature hash: <span style="font-family:var(--font-mono); font-size:9.5px;" id="docSignHash">NONE</span></div>
+            </div>
+            <div style="text-align:right; border-top:1px solid #d1d5db; width:200px; padding-top:8px; margin-top:16px;">
+              Authorized Exchange Node Officer
+            </div>
+          </div>
+
+        </div><!-- /statement-doc -->
+
+      </div><!-- /tab-statement -->
+
+      <!-- ════════════════════════════════════════════════════
+           TAB: VOLUME REPORT
+           ════════════════════════════════════════════════════ -->
+      <div class="tab-panel" id="tab-volume">
+
+        <div class="section-card">
+          <div class="section-title">📈 Volume Report</div>
+          <div class="form-group" style="max-width: 220px; margin-bottom: 0;">
+            <label class="form-label">Group By</label>
+            <select class="form-input" id="volPeriodSelect" onchange="renderVolumeReportTab()">
+              <option value="daily">Daily</option>
+              <option value="weekly" selected>Weekly</option>
+              <option value="monthly">Monthly</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="metric-report-grid">
+          <div class="metric-box">
+            <div class="mb-lbl">Total Buy Volume</div>
+            <div class="mb-val" id="volMetBuy" style="color:var(--green);">₨ 0</div>
+          </div>
+          <div class="metric-box">
+            <div class="mb-lbl">Total Sell Volume</div>
+            <div class="mb-val" id="volMetSell" style="color:var(--gold);">₨ 0</div>
+          </div>
+          <div class="metric-box">
+            <div class="mb-lbl">Combined Volume</div>
+            <div class="mb-val" id="volMetTotal" style="color:var(--white);">₨ 0</div>
+            <div class="metric-void-note" id="volMetVoidNote" style="display:none;"></div>
+          </div>
+        </div>
+
+        <div class="chart-card">
+          <div class="pane-title">Volume Trend (Buy vs Sell)</div>
+          <div class="chart-container"><canvas id="volumeTrendCanvas"></canvas></div>
+        </div>
+
+        <div class="chart-card">
+          <div class="pane-title">Buy vs Sell — Total Comparison</div>
+          <div class="chart-container"><canvas id="buySellCompareCanvas"></canvas></div>
+        </div>
+
+      </div><!-- /tab-volume -->
+
+      <!-- ════════════════════════════════════════════════════
+           TAB: TRANSACTION LOG
+           ════════════════════════════════════════════════════ -->
+      <div class="tab-panel" id="tab-log">
+
+        <div class="section-card">
+          <div class="section-title">📋 Transaction Log</div>
+          <div class="report-controls" style="grid-template-columns: 1.6fr 0.8fr 0.8fr 0.8fr auto;">
+            <div class="form-group">
+              <label class="form-label">Search (Receipt / Client / CNIC)</label>
+              <input type="text" class="form-input" id="logSearchInput" placeholder="e.g. EXC-2026 or Ahmed" oninput="renderTransactionLog()">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Type</label>
+              <select class="form-input" id="logTypeFilter" onchange="renderTransactionLog()">
+                <option value="all">All</option>
+                <option value="buy">Buy</option>
+                <option value="sell">Sell</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">From</label>
+              <input type="date" class="form-input" id="logStartDate" onchange="renderTransactionLog()">
+            </div>
+            <div class="form-group">
+              <label class="form-label">To</label>
+              <input type="date" class="form-input" id="logEndDate" onchange="renderTransactionLog()">
+            </div>
+            <div style="display:flex; gap:10px;">
+              <button class="btn-secondary" onclick="clearLogFilters()">✖ Clear</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="metric-report-grid">
+          <div class="metric-box">
+            <div class="mb-lbl">Matching Records</div>
+            <div class="mb-val" id="logMetTotal" style="color:var(--white);">0</div>
+          </div>
+          <div class="metric-box">
+            <div class="mb-lbl">Clock-Unverified</div>
+            <div class="mb-val" id="logMetClockUnverified" style="color:var(--gold);">0</div>
+            <div style="font-size:10.5px; color:var(--muted); margin-top:4px; line-height:1.4;">Device clock could not be confirmed against network time at submit — see tooltip below.</div>
+          </div>
+          <div class="metric-box">
+            <div class="mb-lbl">Chain Total</div>
+            <div class="mb-val" id="logMetChainTotal" style="color:var(--blue);">0</div>
+          </div>
+        </div>
+
+        <div class="section-card">
+          <div class="section-title">🧾 Matching Records (<span id="logResultCount">0</span>)</div>
+          <div style="font-size:11px; color:var(--muted); margin-bottom:14px; line-height:1.5;">
+            Rows marked <span style="color:var(--gold); font-weight:600;">🕒 Unverified</span> were created while this device's clock could not be confirmed against network time (offline, or drift &gt; 5 minutes). This does not affect the cryptographic hash chain or signature validity of those records — it is a transparency flag on the timestamp source only.
+          </div>
+          <div class="table-scroll">
+            <table class="dark-table">
+              <thead>
+                <tr>
+                  <th>Block</th><th>Receipt</th><th>Date</th><th>Type</th><th>Client</th><th>CNIC</th>
+                  <th>PKR</th><th>Rate</th><th>USDT</th><th>Profit (PKR)</th><th>Bank</th><th>Clock</th><th>Void Status</th>
+                </tr>
+              </thead>
+              <tbody id="logTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+      </div><!-- /tab-log -->
+
+      <!-- ════════════════════════════════════════════════════
+           TAB: CLIENT REPORT
+           ════════════════════════════════════════════════════ -->
+      <div class="tab-panel" id="tab-clients">
+
+        <div class="section-card">
+          <div class="section-title">👥 Client Report</div>
+          <div class="form-group" style="max-width:340px; margin-bottom:0;">
+            <label class="form-label">Search Client</label>
+            <input type="text" class="form-input" id="clientSearchInput" placeholder="Name or CNIC" oninput="renderClientReportTab()">
+          </div>
+        </div>
+
+        <div class="metric-report-grid">
+          <div class="metric-box">
+            <div class="mb-lbl">Total Clients</div>
+            <div class="mb-val" id="cliMetTotal" style="color:var(--white);">0</div>
+          </div>
+          <div class="metric-box">
+            <div class="mb-lbl">Top Client Volume</div>
+            <div class="mb-val" id="cliMetTop" style="color:var(--blue);">₨ 0</div>
+          </div>
+          <div class="metric-box">
+            <div class="mb-lbl">Avg Txns / Client</div>
+            <div class="mb-val" id="cliMetAvg" style="color:var(--purple);">0</div>
+          </div>
+        </div>
+
+        <div class="section-card">
+          <div class="section-title">📑 Per-Client Summary</div>
+          <div class="table-scroll">
+            <table class="dark-table">
+              <thead>
+                <tr><th>Client</th><th>CNIC</th><th>Transactions</th><th>Total PKR Volume</th><th>Total USDT Volume</th><th>Last Transaction</th></tr>
+              </thead>
+              <tbody id="clientTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+      </div><!-- /tab-clients -->
+
+      <!-- ════════════════════════════════════════════════════
+           TAB: RATE ANALYSIS
+           ════════════════════════════════════════════════════ -->
+      <div class="tab-panel" id="tab-rate">
+
+        <div class="metric-report-grid">
+          <div class="metric-box">
+            <div class="mb-lbl">Average Rate</div>
+            <div class="mb-val" id="rateMetAvg" style="color:var(--blue);">0.000</div>
+          </div>
+          <div class="metric-box">
+            <div class="mb-lbl">Lowest Rate</div>
+            <div class="mb-val" id="rateMetMin" style="color:var(--green);">0.000</div>
+          </div>
+          <div class="metric-box">
+            <div class="mb-lbl">Highest Rate</div>
+            <div class="mb-val" id="rateMetMax" style="color:var(--gold);">0.000</div>
+          </div>
+        </div>
+
+        <div class="chart-card">
+          <div class="pane-title">Exchange Rate Trend Over Time</div>
+          <div class="chart-container"><canvas id="rateChartCanvas"></canvas></div>
+        </div>
+
+      </div><!-- /tab-rate -->
+
+      <!-- ════════════════════════════════════════════════════
+           TAB: FBR / TAX
+           ════════════════════════════════════════════════════ -->
+      <div class="tab-panel" id="tab-tax">
+
+        <div class="section-card">
+          <div class="section-title">🧾 FBR / Tax Summary</div>
+          <div style="font-size:12px; color:var(--muted); line-height:1.6; margin-bottom:16px;">
+            This summary aggregates chained transaction volume by calendar month for tax-filing reference. It is generated locally from your tamper-proof ledger and is not an official FBR submission — please verify figures with your accountant before filing.
+          </div>
+          <div style="font-size:12px; color:var(--muted); line-height:1.6; margin-bottom:16px; padding:10px 12px; background:rgba(45,212,191,0.06); border:1px solid rgba(45,212,191,0.25); border-radius:8px;">
+            ℹ️ Volume represents gross transaction turnover, while Profit represents actual business income/margin. Depending on the filing requirement, accountants may require one or both figures.
+          </div>
+          <div class="form-group" style="max-width:220px; margin-bottom:0;">
+            <label class="form-label">Tax Year</label>
+            <select class="form-input" id="taxYearSelect" onchange="renderTaxSummaryTab()"></select>
+          </div>
+        </div>
+
+        <div class="metric-report-grid cols-4">
+          <div class="metric-box">
+            <div class="mb-lbl">Year Total Volume (PKR)</div>
+            <div class="mb-val" id="taxMetTotal" style="color:var(--white);">₨ 0</div>
+          </div>
+          <div class="metric-box">
+            <div class="mb-lbl">Total Transactions</div>
+            <div class="mb-val" id="taxMetCount">0</div>
+          </div>
+          <div class="metric-box">
+            <div class="mb-lbl">Unique Clients Served</div>
+            <div class="mb-val" id="taxMetClients" style="color:var(--purple);">0</div>
+          </div>
+          <div class="metric-box">
+            <div class="mb-lbl">Year Total Profit (PKR)</div>
+            <div class="mb-val" id="taxMetProfit" style="color:#2DD4BF;">—</div>
+          </div>
+        </div>
+
+        <div class="section-card">
+          <div class="section-title">📅 Monthly Breakdown</div>
+          <div style="font-size:11px; color:var(--muted); margin-bottom:14px;">Profit subtotals only include months with at least one transaction carrying a recorded profit figure — months with no profit data show "—".</div>
+          <div class="table-scroll">
+            <table class="dark-table">
+              <thead><tr><th>Month</th><th>Buy Volume PKR</th><th>Sell Volume PKR</th><th>Total Volume PKR</th><th>Profit (PKR)</th><th>Transactions</th></tr></thead>
+              <tbody id="taxTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+      </div><!-- /tab-tax -->
+
+      <!-- ════════════════════════════════════════════════════
+           TAB: EXPORT CENTER
+           ════════════════════════════════════════════════════ -->
+      <div class="tab-panel" id="tab-export">
+
+        <div class="section-card">
+          <div class="section-title">📤 Export Center</div>
+          <div style="font-size:12px; color:var(--muted); margin-bottom:20px;">
+            All report exports in one place. Excel (.xlsx) downloads are real spreadsheet workbooks generated locally — fully offline, no server upload.
+          </div>
+
+          <div style="margin-bottom:24px;">
+            <div class="form-label" style="margin-bottom:10px;">Primary Export</div>
+            <button class="btn-primary" onclick="exportFullWorkbookExcel()">📊 Download Full Excel Workbook (.xlsx)</button>
+          </div>
+
+          <div class="export-grid">
+            <div class="metric-box">
+              <div class="mb-lbl">Ledger Statement</div>
+              <div class="export-card-actions">
+                <button class="btn-secondary btn-sm" onclick="exportStatementAsExcel()">📊 Excel (.xlsx)</button>
+                <button class="btn-secondary btn-sm" onclick="exportReportAsCsv()">📄 CSV</button>
+              </div>
+            </div>
+            <div class="metric-box">
+              <div class="mb-lbl">Transaction Log</div>
+              <div class="export-card-actions">
+                <button class="btn-secondary btn-sm" onclick="exportTransactionLogCsv()">📄 CSV</button>
+              </div>
+            </div>
+            <div class="metric-box">
+              <div class="mb-lbl">Client Report</div>
+              <div class="export-card-actions">
+                <button class="btn-secondary btn-sm" onclick="exportClientReportCsv()">📄 CSV</button>
+              </div>
+            </div>
+            <div class="metric-box">
+              <div class="mb-lbl">FBR / Tax Summary</div>
+              <div class="export-card-actions">
+                <button class="btn-secondary btn-sm" onclick="exportTaxSummaryCsv()">📄 CSV</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /tab-export -->
+
+    </div><!-- /body -->
+  </div><!-- /main area -->
+</div><!-- /app shell -->
+
+<script src="db.js"></script>
+<script src="auth.js"></script>
+<script src="profile.js"></script>
+<script src="audit-log.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" integrity="sha512-ZnR2AmqHD/KFi6iAkumQpAq7lmVK5TFqxj5XXDKy6MBIiNpEi/RNjSuCmXQYiLgKHfHtUFV7dXvYjvGq4mfA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" integrity="sha512-r22gChDnGvBylk90+2e/ycr3RVrDi8DIOkIGNhJlKfuyQM4tIRAI062MaV8sfjQKYVGjOBaZBOA87z+IhZE9A==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script>
+'use strict';
+
+// ── STATE ─────────────────────────────────────────────────
+// SCALE-FIX 2: _allTxns is now populated LAZILY by _ensureAllTxns(),
+// not by a boot-time `SELECT * FROM transactions`. The Statement tab
+// (the default view) uses targeted SQL aggregation via
+// _loadSummaryFromDB() and never needs the full dataset at all.
+let _allTxns = [];
+let _allTxnsLoaded = false;
+let _filteredStatementData = [];
+let _logFiltered = [];
+let _volumeTrendChart = null;
+let _buySellChart = null;
+let _rateChart = null;
+// Set of chain_index values to exclude from financial totals:
+// includes both the voided original AND the correction entry itself,
+// since the correction entry's amounts are a copy of the original.
+// Built in buildVoidSet() after every load.
+let _voidedChainIndexes = new Set();
+
+// ── LAZY FULL-LOAD HELPER (SCALE-FIX 2) ───────────────────
+/**
+ * _ensureAllTxns()
+ * Loads every transaction into _allTxns exactly once, on demand.
+ * Call this only from tabs that genuinely need the full dataset
+ * (Chain Log, Clients, Rate Analysis, Tax Summary, Volume/Export).
+ * The Statement tab does NOT call this — it uses SQL aggregation.
+ */
+async function _ensureAllTxns() {
+  if (_allTxnsLoaded) return;
+  _allTxns = await DB.all('SELECT * FROM transactions ORDER BY chain_index ASC');
+  _voidedChainIndexes = buildVoidSet(_allTxns);
+  _allTxnsLoaded = true;
+}
+
+// ── VOID HELPERS ──────────────────────────────────────────
+function buildVoidSet(txns) {
+  const s = new Set();
+  txns.forEach(t => {
+    if (Number(t.is_void) === 1) {
+      s.add(Number(t.chain_index));
+      if (t.voids_chain_index != null) s.add(Number(t.voids_chain_index));
+    }
+  });
+  return s;
+}
+
+// Returns rows that count toward financial totals.
+// Backward-compatible: older rows have is_void=null/0 and pass through.
+function effectiveTxns(arr) {
+  return arr.filter(t => !_voidedChainIndexes.has(Number(t.chain_index)));
+}
+
+// Void-status label for a single transaction row
+function voidStatusLabel(t) {
+  if (Number(t.is_void) === 1) return 'VOID ENTRY';
+  if (_voidedChainIndexes.has(Number(t.chain_index))) return 'VOIDED';
+  return '';
+}
+
+// ── INIT ──────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', async () => {
+  // Guard auth loop
+  if (!Auth.requireAuth()) return;
+
+  await DB.init();
+  await loadProfile();
+
+  // Set default dates placeholder
+  const today = new Date();
+  const prior = new Date();
+  prior.setDate(prior.getDate() - 30);
+
+  document.getElementById('fStartDate').value = prior.toISOString().split('T')[0];
+  document.getElementById('fEndDate').value = today.toISOString().split('T')[0];
+
+  // ── NO full `SELECT * FROM transactions` here any more (SCALE-FIX 2) ──
+  // _allTxns is now loaded lazily by _ensureAllTxns(), only when the
+  // user opens a tab that needs the full dataset (see switchTab below).
+  // The default Statement tab is populated via SQL aggregation in
+  // generateReport() / _loadSummaryFromDB() and never touches _allTxns.
+
+  setupSession();
+  setupMobileNav();
+  setupLogout();
+  setupTabs();
+});
+
+// ── SIDEBAR PROFILE ───────────────────────────────────────
+async function loadProfile() {
+  try {
+    const p = await Profile.get();
+    if (p) {
+      document.getElementById('sbLogo').textContent = p.logoEmoji || '⬡';
+      document.getElementById('sbBizName').textContent = p.businessName || 'ExchangeTable';
+
+      // Bind Statement Document Header
+      document.getElementById('dLogo').textContent = p.logoEmoji || '⬡';
+      document.getElementById('dBizName').textContent = p.businessName || 'Exchange node';
+      document.getElementById('dBizContact').textContent = `${p.area || ''}, ${p.city || ''} | Phone: ${p.phone || '—'} | WA: ${p.whatsapp || '—'}`;
+    }
+  } catch(e) {}
+}
+
+// ── TAB SWITCHING ─────────────────────────────────────────
+function setupTabs() {
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+  });
+}
+
+function switchTab(name) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'tab-' + name));
+
+  // SCALE-FIX 2: only tabs that need every row trigger the (now lazy)
+  // full load. 'statement' uses SQL aggregation directly in
+  // generateReport() and never calls _ensureAllTxns().
+  if (name === 'volume') _ensureAllTxns().then(renderVolumeReportTab);
+  else if (name === 'log') _ensureAllTxns().then(renderTransactionLog);
+  else if (name === 'clients') _ensureAllTxns().then(renderClientReportTab);
+  else if (name === 'rate') _ensureAllTxns().then(renderRateAnalysisTab);
+  else if (name === 'tax') _ensureAllTxns().then(renderTaxSummaryTab);
+}
+
+// ════════════════════════════════════════════════════════════
+//  LEDGER STATEMENT (bank-statement export) — unchanged logic
+// ════════════════════════════════════════════════════════════
+
+// ══════════════════════════════════════════════════════════
+//  SCALE-FIX 2: SQL aggregation for the Statement tab
+//
+//  _loadSummaryFromDB() issues one aggregation query (COUNT/SUM/AVG)
+//  for the chosen date range and a second query for just the rows in
+//  that range — no full-table scan in JS, regardless of table size.
+// ══════════════════════════════════════════════════════════
+async function _loadSummaryFromDB(startDate, endDate) {
+  const startTs = startDate + 'T00:00:00.000Z';
+  const endTs   = endDate   + 'T23:59:59.999Z';
+
+  // is_void = 0 excludes the correction entry itself; the NOT IN
+  // subquery additionally excludes the voided *original* row, so the
+  // aggregate matches effectiveTxns() semantics exactly.
+  const summary = await DB.get(`
+    SELECT
+      COUNT(*)                                           AS total,
+      SUM(amount_pkr)                                    AS volume,
+      SUM(amount_usdt)                                   AS usdt,
+      AVG(exchange_rate)                                 AS avgRate,
+      SUM(CASE WHEN profit_pkr IS NOT NULL
+               THEN profit_pkr ELSE 0 END)                AS profit,
+      SUM(CASE WHEN profit_pkr IS NOT NULL THEN 1
+               ELSE 0 END)                                AS profitCount
+    FROM transactions
+    WHERE timestamp >= ? AND timestamp <= ?
+      AND is_void = 0
+      AND chain_index NOT IN (
+        SELECT voids_chain_index
+        FROM   transactions
+        WHERE  is_void = 1
+          AND  voids_chain_index IS NOT NULL
+      )
+  `, [startTs, endTs]);
+
+  // Full rows for the printable table — includes void entries so the
+  // audit trail stays complete (they're flagged visually), ordered by
+  // chain position to match the existing statement sequence.
+  const rows = await DB.all(`
+    SELECT *
+    FROM   transactions
+    WHERE  timestamp >= ? AND timestamp <= ?
+    ORDER  BY chain_index ASC
+  `, [startTs, endTs]);
+
+  // Void set scoped to just this range's rows (cheaper than the full chain).
+  const localVoidSet = new Set();
+  rows.forEach(t => {
+    if (Number(t.is_void) === 1 && t.voids_chain_index != null) {
+      localVoidSet.add(Number(t.voids_chain_index));
+    }
+  });
+
+  return { summary, rows, localVoidSet };
+}
+
+function generateReport() {
+  _generateReportAsync();
+}
+
+async function _generateReportAsync() {
+  const start = document.getElementById('fStartDate').value;
+  const end = document.getElementById('fEndDate').value;
+  const repType = document.getElementById('fReportType').value;
+
+  if (!start || !end) {
+    Toast.show('Please select both start and end statement dates.', 'warning');
+    return;
+  }
+
+  // ── SQL aggregation (SCALE-FIX 2) — single round-trip, no JS filter pass ──
+  const { summary, rows, localVoidSet } = await _loadSummaryFromDB(start, end);
+
+  if (!rows || rows.length === 0) {
+    Toast.show('No blocks are chained within the selected boundary range.', 'warning');
+    document.getElementById('visualReportSection').style.display = 'none';
+    document.getElementById('statementHtmlDoc').classList.remove('show');
+    return;
+  }
+
+  // Cache the range rows for the SVG chart and CSV/Excel export.
+  _filteredStatementData = rows;
+  // Update the global void set so voidStatusLabel() / effectiveTxns()
+  // render correctly for these rows (chart + statement doc both use it).
+  _voidedChainIndexes = localVoidSet;
+
+  document.getElementById('visualReportSection').style.display = 'block';
+  document.getElementById('statementHtmlDoc').classList.add('show');
+
+  renderDynamicSvgChart();
+  _populateStatementA4DocFromSQL(rows, summary, localVoidSet, start, end);
+
+  AuditLog.add(
+    'REPORT_GENERATED',
+    `Type: ${repType} | Range: ${start} to ${end} | Blocks: ${rows.length}`
+  );
+  Toast.show('📑 Report metrics compiled and visual chart rendered.', 'success');
+}
+
+// ── POPULATE TABLE DOCUMENT (SQL-derived totals — no JS re-summation) ──
+function _populateStatementA4DocFromSQL(rows, summary, localVoidSet, start, end) {
+  document.getElementById('dStatementDateRange').innerHTML = `Statement Range: <strong>${start}</strong> to <strong>${end}</strong>`;
+
+  const total       = summary ? (summary.total || 0) : 0;
+  const totalPkr    = summary ? (summary.volume || 0) : 0;
+  const totalUsdt   = summary ? (summary.usdt || 0) : 0;
+  const avgRate     = summary ? (summary.avgRate || 0) : 0;
+  const totalProfit = summary ? (summary.profit || 0) : 0;
+  const profitRecordCount = summary ? (summary.profitCount || 0) : 0;
+
+  const allRows      = rows.length;
+  const voidExcluded = allRows - total;
+
+  // ── Summary metric cards (replaces calculateReportMetrics()) ──
+  document.getElementById('metPkr').textContent = `₨ ${Math.round(totalPkr).toLocaleString()}`;
+  document.getElementById('metRate').textContent = avgRate.toFixed(3);
+  document.getElementById('metCount').textContent = `${total} Effective Block${total !== 1 ? 's' : ''}` +
+    (voidExcluded > 0 ? ` (${voidExcluded} void-pair row${voidExcluded !== 1 ? 's' : ''} excluded)` : '');
+
+  const tbody = document.getElementById('statementTableBody');
+
+  tbody.innerHTML = rows.map(t => {
+    const isBuy = t.txn_type === 'buy';
+    const hasProfit = t.profit_pkr !== null && t.profit_pkr !== undefined && t.profit_pkr !== '';
+    const isVoidEntry  = Number(t.is_void) === 1;
+    const isVoidedOrig = !isVoidEntry && localVoidSet.has(Number(t.chain_index));
+    const isAffected   = isVoidEntry || isVoidedOrig;
+
+    // Status cell for statement doc (light background)
+    let statusCell = '';
+    if (isVoidEntry) {
+      statusCell = `<span style="font-size:9px; font-weight:700; color:#0f766e; background:#ccfbf1; border:1px solid #99f6e4; border-radius:3px; padding:1px 5px;">↩ VOID ENTRY</span>`;
+    } else if (isVoidedOrig) {
+      statusCell = `<span style="font-size:9px; font-weight:700; color:#b91c1c; background:#fee2e2; border:1px solid #fca5a5; border-radius:3px; padding:1px 5px;">🚫 VOIDED</span>`;
+    }
+
+    const amtStyle = isAffected ? 'text-decoration:line-through; opacity:0.5;' : '';
+
+    return `
+      <tr style="${isVoidedOrig ? 'background:#fff7f7;' : (isVoidEntry ? 'background:#f0fdfa;' : '')}">
+        <td class="mono">#${t.chain_index}</td>
+        <td class="mono" style="font-weight:600;">${t.receipt_number}</td>
+        <td style="color:${isBuy ? '#059669' : '#d97706'}">${isBuy ? '📥 Buy' : '📤 Sell'}</td>
+        <td>
+          <div style="font-weight:600;">${esc(t.client_name)}</div>
+          <div style="font-size:10px; color:#6b7280;">${t.client_cnic || 'No CNIC'}</div>
+        </td>
+        <td style="${amtStyle}">₨ ${parseFloat(t.amount_pkr).toLocaleString(undefined, {minimumFractionDigits:2})}</td>
+        <td>${parseFloat(t.exchange_rate).toFixed(3)}</td>
+        <td style="${amtStyle}">${parseFloat(t.amount_usdt).toFixed(2)} USDT</td>
+        <td style="color:${!hasProfit ? '#9ca3af' : (parseFloat(t.profit_pkr) < 0 ? '#dc2626' : '#111827')}; ${amtStyle}">${hasProfit ? '₨ ' + parseFloat(t.profit_pkr).toLocaleString(undefined, {minimumFractionDigits:2}) : '—'}</td>
+        <td>${statusCell}</td>
+      </tr>
+    `;
+  }).join('');
+
+  // Summary row counts
+  const blockLabel = `${allRows} Block${allRows !== 1 ? 's' : ''} (${total} effective` +
+    (voidExcluded > 0 ? `, ${voidExcluded} void-pair row${voidExcluded !== 1 ? 's' : ''} excluded from totals` : '') + ')';
+
+  // Bind parameters
+  document.getElementById('dTotalPkr').textContent = `₨ ${totalPkr.toLocaleString(undefined, {minimumFractionDigits:2})}`;
+  document.getElementById('dTotalUsdt').textContent = `${totalUsdt.toFixed(2)} USDT`;
+  document.getElementById('dAvgRate').textContent = avgRate.toFixed(3);
+  document.getElementById('dBlockCounts').textContent = blockLabel;
+  document.getElementById('dTotalProfit').textContent = profitRecordCount > 0
+    ? `₨ ${totalProfit.toLocaleString(undefined, {minimumFractionDigits:2})}`
+    : '—';
+
+  document.getElementById('docDatePrep').textContent = new Date().toLocaleString();
+
+  // Use tip of effective records (by chain position) for signature hash
+  const effRows = rows.filter(t => Number(t.is_void) !== 1 && !localVoidSet.has(Number(t.chain_index)));
+  const tipRecord = effRows[effRows.length - 1] || rows[rows.length - 1];
+  document.getElementById('docSignHash').textContent = tipRecord ? tipRecord.hash.toUpperCase() : 'NONE';
+}
+
+// ── RENDER DYNAMIC PURE SVG LINE CHART ───────────────────
+function renderDynamicSvgChart() {
+  const container = document.getElementById('svgChartContainer');
+  const w = container.clientWidth || 600;
+  const h = 260;
+
+  // Group data by daily records — use effectiveTxns so void pairs don't
+  // inflate the chart, while still rendering all rows in the table below.
+  const dailyGroups = {};
+  effectiveTxns(_filteredStatementData).forEach(t => {
+    const day = t.timestamp.split('T')[0];
+    if (!dailyGroups[day]) {
+      dailyGroups[day] = { buy: 0, sell: 0 };
+    }
+    const val = parseFloat(t.amount_usdt) || 0;
+    if (t.txn_type === 'buy') {
+      dailyGroups[day].buy += val;
+    } else {
+      dailyGroups[day].sell += val;
+    }
+  });
+
+  const sortedDays = Object.keys(dailyGroups).sort();
+
+  if (sortedDays.length === 0) {
+    container.innerHTML = '<div style="color:var(--muted); text-align:center; padding-top:100px;">No trend data matches boundaries.</div>';
+    return;
+  }
+
+  // Draw chart parameters
+  let maxVal = 100; // minimum scale
+  sortedDays.forEach(d => {
+    const v = Math.max(dailyGroups[d].buy, dailyGroups[d].sell);
+    if (v > maxVal) maxVal = v;
+  });
+
+  // margins
+  const mTop = 20, mBot = 40, mLeft = 60, mRight = 30;
+  const graphW = w - mLeft - mRight;
+  const graphH = h - mTop - mBot;
+
+  // Draw coordinate axis lines and ticks
+  let svg = `<svg width="${w}" height="${h}" style="background:transparent; font-family:var(--font-mono); font-size:9px; overflow:visible;">`;
+
+  // Draw grid lines
+  const gridLines = 4;
+  for (let i = 0; i <= gridLines; i++) {
+    const gy = mTop + (graphH * i / gridLines);
+    const tickVal = Math.round(maxVal - (maxVal * i / gridLines));
+    svg += `
+      <line x1="${mLeft}" y1="${gy}" x2="${w - mRight}" y2="${gy}" stroke="var(--border-soft)" stroke-dasharray="4,4"/>
+      <text x="${mLeft - 10}" y="${gy + 3}" fill="var(--muted)" text-anchor="end">${tickVal} U</text>
+    `;
+  }
+
+  // Map coordinate coordinates of line chart
+  const buyCoords = [];
+  const sellCoords = [];
+  const totalDays = sortedDays.length;
+
+  sortedDays.forEach((day, index) => {
+    const gx = mLeft + (totalDays === 1 ? graphW / 2 : (graphW * index / (totalDays - 1)));
+
+    // heights
+    const buyY  = mTop + graphH - (dailyGroups[day].buy / maxVal) * graphH;
+    const sellY = mTop + graphH - (dailyGroups[day].sell / maxVal) * graphH;
+
+    buyCoords.push(`${gx},${buyY}`);
+    sellCoords.push(`${gx},${sellY}`);
+
+    // Show date tick in intervals
+    if (totalDays < 8 || index === 0 || index === totalDays - 1 || index === Math.round(totalDays / 2)) {
+      const displayDate = day.substring(5); // MM-DD
+      svg += `<text x="${gx}" y="${h - 15}" fill="var(--muted)" text-anchor="middle">${displayDate}</text>`;
+    }
+  });
+
+  // Render polyline paths
+  if (totalDays > 1) {
+    svg += `
+      <polyline points="${buyCoords.join(' ')}" fill="none" stroke="var(--green)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <polyline points="${sellCoords.join(' ')}" fill="none" stroke="var(--gold)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    `;
+  }
+
+  // Draw point circles
+  sortedDays.forEach((day, index) => {
+    const gx = mLeft + (totalDays === 1 ? graphW / 2 : (graphW * index / (totalDays - 1)));
+    const buyY  = mTop + graphH - (dailyGroups[day].buy / maxVal) * graphH;
+    const sellY = mTop + graphH - (dailyGroups[day].sell / maxVal) * graphH;
+
+    if (dailyGroups[day].buy > 0) {
+      svg += `<circle cx="${gx}" cy="${buyY}" r="4" fill="var(--green)" stroke="var(--navy-2)" stroke-width="1.5"/>`;
+    }
+    if (dailyGroups[day].sell > 0) {
+      svg += `<circle cx="${gx}" cy="${sellY}" r="4" fill="var(--gold)" stroke="var(--navy-2)" stroke-width="1.5"/>`;
+    }
+  });
+
+  svg += `</svg>`;
+  container.innerHTML = svg;
+}
+
+// ── EXPORT STATEMENT AS CSV (existing, unchanged) ──
+function exportReportAsCsv() {
+  if (_filteredStatementData.length === 0) {
+    Toast.show('Run a ledger statement first before exporting.', 'warning');
+    return;
+  }
+
+  const headers = ['Chain Index', 'Receipt Number', 'Type', 'Timestamp', 'Amount PKR', 'Rate', 'Amount USDT', 'Cost Rate', 'Profit PKR', 'Client Name', 'Client CNIC', 'Void Status'];
+  const csvRows = [headers.join(',')];
+
+  _filteredStatementData.forEach(t => {
+    const row = [
+      t.chain_index,
+      `"${t.receipt_number}"`,
+      `"${t.txn_type.toUpperCase()}"`,
+      `"${t.timestamp}"`,
+      t.amount_pkr,
+      t.exchange_rate,
+      t.amount_usdt,
+      (t.cost_rate === null || t.cost_rate === undefined) ? '' : t.cost_rate,
+      (t.profit_pkr === null || t.profit_pkr === undefined) ? '' : t.profit_pkr,
+      `"${t.client_name.replace(/"/g, '""')}"`,
+      `"${t.client_cnic || ''}"`,
+      `"${voidStatusLabel(t)}"`
+    ];
+    csvRows.push(row.join(','));
+  });
+
+  downloadCsvBlob(csvRows.join('\n'), `Statement-Export-${document.getElementById('fStartDate').value}-to-${document.getElementById('fEndDate').value}.csv`);
+  Toast.show('📥 Statement CSV download finished.', 'success');
+}
+
+// ════════════════════════════════════════════════════════════
+//  VOLUME REPORT TAB
+// ════════════════════════════════════════════════════════════
+
+function groupTxnsByPeriod(txns, period) {
+  const groups = {};
+  txns.forEach(t => {
+    const d = new Date(t.timestamp);
+    let key;
+    if (period === 'daily') {
+      key = t.timestamp.split('T')[0];
+    } else if (period === 'weekly') {
+      const day = d.getUTCDay() || 7; // 1..7, Monday = 1
+      const monday = new Date(d);
+      monday.setUTCDate(d.getUTCDate() - day + 1);
+      key = monday.toISOString().split('T')[0];
+    } else {
+      key = t.timestamp.substring(0, 7); // YYYY-MM
+    }
+    if (!groups[key]) groups[key] = { buy: 0, sell: 0, count: 0 };
+    const val = parseFloat(t.amount_pkr) || 0;
+    if (t.txn_type === 'buy') groups[key].buy += val; else groups[key].sell += val;
+    groups[key].count++;
+  });
+  return Object.keys(groups).sort().map(k => ({ label: k, ...groups[k] }));
+}
+
+function renderVolumeReportTab() {
+  if (typeof Chart === 'undefined') {
+    Toast.show('Chart engine still loading — please try again in a moment.', 'warning');
+    return;
+  }
+
+  const period = document.getElementById('volPeriodSelect').value;
+  // Use effective transactions so voided pairs don't inflate volume figures
+  const eff = effectiveTxns(_allTxns);
+  const grouped = groupTxnsByPeriod(eff, period);
+
+  let totalBuy = 0, totalSell = 0;
+  eff.forEach(t => {
+    const val = parseFloat(t.amount_pkr) || 0;
+    if (t.txn_type === 'buy') totalBuy += val; else totalSell += val;
+  });
+  document.getElementById('volMetBuy').textContent = `₨ ${Math.round(totalBuy).toLocaleString()}`;
+  document.getElementById('volMetSell').textContent = `₨ ${Math.round(totalSell).toLocaleString()}`;
+  document.getElementById('volMetTotal').textContent = `₨ ${Math.round(totalBuy + totalSell).toLocaleString()}`;
+
+  // Void footnote
+  const voidExcluded = _allTxns.length - eff.length;
+  const note = document.getElementById('volMetVoidNote');
+  if (note) {
+    if (voidExcluded > 0) {
+      note.textContent = `${voidExcluded} void-pair row${voidExcluded !== 1 ? 's' : ''} excluded`;
+      note.style.display = '';
+    } else {
+      note.style.display = 'none';
+    }
+  }
+
+  const labels = grouped.map(g => g.label);
+  const buyData = grouped.map(g => g.buy);
+  const sellData = grouped.map(g => g.sell);
+
+  if (_volumeTrendChart) _volumeTrendChart.destroy();
+  const ctx1 = document.getElementById('volumeTrendCanvas').getContext('2d');
+  _volumeTrendChart = new Chart(ctx1, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Buy Volume (PKR)', data: buyData, borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.12)', tension: 0.3, fill: true },
+        { label: 'Sell Volume (PKR)', data: sellData, borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.12)', tension: 0.3, fill: true }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#f0f6ff' } } },
+      scales: {
+        x: { ticks: { color: '#6b8099' }, grid: { color: '#14243b' } },
+        y: { ticks: { color: '#6b8099' }, grid: { color: '#14243b' } }
+      }
+    }
+  });
+
+  if (_buySellChart) _buySellChart.destroy();
+  const ctx2 = document.getElementById('buySellCompareCanvas').getContext('2d');
+  _buySellChart = new Chart(ctx2, {
+    type: 'bar',
+    data: {
+      labels: ['Buy', 'Sell'],
+      datasets: [{ label: 'Total Volume (PKR)', data: [totalBuy, totalSell], backgroundColor: ['#10b981', '#f59e0b'] }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#6b8099' }, grid: { display: false } },
+        y: { ticks: { color: '#6b8099' }, grid: { color: '#14243b' } }
+      }
+    }
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+//  RATE ANALYSIS TAB
+// ════════════════════════════════════════════════════════════
+
+function renderRateAnalysisTab() {
+  if (typeof Chart === 'undefined') {
+    Toast.show('Chart engine still loading — please try again in a moment.', 'warning');
+    return;
+  }
+
+  // Exclude void pairs so rate averages/min/max reflect real trades only
+  const sorted = effectiveTxns([..._allTxns]).sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+  const rates = sorted.map(t => parseFloat(t.exchange_rate) || 0);
+
+  if (rates.length === 0) {
+    document.getElementById('rateMetAvg').textContent = '0.000';
+    document.getElementById('rateMetMin').textContent = '0.000';
+    document.getElementById('rateMetMax').textContent = '0.000';
+  } else {
+    const avg = rates.reduce((a, b) => a + b, 0) / rates.length;
+    document.getElementById('rateMetAvg').textContent = avg.toFixed(3);
+    document.getElementById('rateMetMin').textContent = Math.min(...rates).toFixed(3);
+    document.getElementById('rateMetMax').textContent = Math.max(...rates).toFixed(3);
+  }
+
+  const labels = sorted.map(t => `${t.receipt_number.split('-').pop()} · ${t.timestamp.split('T')[0]}`);
+
+  if (_rateChart) _rateChart.destroy();
+  const ctx = document.getElementById('rateChartCanvas').getContext('2d');
+  _rateChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{ label: 'Exchange Rate', data: rates, borderColor: '#0ea5e9', backgroundColor: 'rgba(14,165,233,0.12)', tension: 0.25, fill: true, pointRadius: 2 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#f0f6ff' } } },
+      scales: {
+        x: { ticks: { color: '#6b8099', maxRotation: 60, minRotation: 0 }, grid: { display: false } },
+        y: { ticks: { color: '#6b8099' }, grid: { color: '#14243b' } }
+      }
+    }
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+//  TRANSACTION LOG TAB
+// ════════════════════════════════════════════════════════════
+
+function clearLogFilters() {
+  document.getElementById('logSearchInput').value = '';
+  document.getElementById('logTypeFilter').value = 'all';
+  document.getElementById('logStartDate').value = '';
+  document.getElementById('logEndDate').value = '';
+  renderTransactionLog();
+}
+
+function renderTransactionLog() {
+  const q = (document.getElementById('logSearchInput').value || '').trim().toLowerCase();
+  const type = document.getElementById('logTypeFilter').value;
+  const start = document.getElementById('logStartDate').value;
+  const end = document.getElementById('logEndDate').value;
+
+  _logFiltered = _allTxns.filter(t => {
+    if (type !== 'all' && t.txn_type !== type) return false;
+    const tDate = t.timestamp.split('T')[0];
+    if (start && tDate < start) return false;
+    if (end && tDate > end) return false;
+    if (q) {
+      const hay = `${t.receipt_number} ${t.client_name || ''} ${t.client_cnic || ''}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
+  // ── Clock-unverified metrics (chain-integrity transparency, requirement #5) ──
+  const clockUnverifiedInView = _logFiltered.filter(t => Number(t.clock_unverified) === 1).length;
+  const clockUnverifiedTotal  = _allTxns.filter(t => Number(t.clock_unverified) === 1).length;
+  // Effective count (excluding void pairs) for the matching records metric
+  const effInView = effectiveTxns(_logFiltered).length;
+  const voidRowsInView = _logFiltered.length - effInView;
+  setTxt('logMetTotal', voidRowsInView > 0
+    ? `${effInView} effective (${voidRowsInView} void-pair row${voidRowsInView !== 1 ? 's' : ''} shown)`
+    : String(_logFiltered.length));
+  setTxt('logResultCount', _logFiltered.length);
+  setTxt('logMetClockUnverified', clockUnverifiedInView);
+  setTxt('logMetChainTotal', `${_allTxns.length} (${clockUnverifiedTotal} unverified)`);
+
+  const tbody = document.getElementById('logTableBody');
+  if (_logFiltered.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="13" style="text-align:center; color:var(--muted); padding:30px;">No matching transactions.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = _logFiltered.map(t => {
+    const isBuy = t.txn_type === 'buy';
+    const clockCell = Number(t.clock_unverified) === 1
+      ? `<span style="color:var(--gold); font-size:11px; font-weight:600; white-space:nowrap;" title="Device clock could not be confirmed against network time when this record was created.">🕒 Unverified</span>`
+      : `<span style="color:var(--green); font-size:11px;" title="Device clock matched network time within 5 minutes at submit.">✓</span>`;
+    const hasProfit = t.profit_pkr !== null && t.profit_pkr !== undefined && t.profit_pkr !== '';
+    const profitCell = hasProfit
+      ? `<span style="color:${parseFloat(t.profit_pkr) < 0 ? '#FCA5A5' : 'var(--green)'};">₨ ${parseFloat(t.profit_pkr).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>`
+      : `<span style="color:var(--muted);">—</span>`;
+
+    // Void status badge
+    const statusLabel = voidStatusLabel(t);
+    let voidCell = '';
+    if (statusLabel === 'VOID ENTRY') {
+      voidCell = `<span class="void-badge-report is-void-entry">↩ VOID ENTRY</span>`;
+    } else if (statusLabel === 'VOIDED') {
+      voidCell = `<span class="void-badge-report is-voided">🚫 VOIDED</span>`;
+    } else {
+      voidCell = `<span style="color:var(--muted); font-size:11px;">—</span>`;
+    }
+
+    const isAffected = !!statusLabel;
+    const amtStyle = isAffected ? 'class="voided-amount"' : '';
+
+    return `
+      <tr style="${statusLabel === 'VOIDED' ? 'opacity:0.7;' : ''}">
+        <td class="mono">#${t.chain_index}</td>
+        <td class="mono">${esc(t.receipt_number)}</td>
+        <td>${new Date(t.timestamp).toLocaleDateString('en-PK')}</td>
+        <td style="color:${isBuy ? 'var(--green)' : 'var(--gold)'}">${isBuy ? '📥 Buy' : '📤 Sell'}</td>
+        <td>${esc(t.client_name || 'Walk-in')}</td>
+        <td class="mono">${esc(t.client_cnic || '—')}</td>
+        <td ${amtStyle}>₨ ${parseFloat(t.amount_pkr).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+        <td>${parseFloat(t.exchange_rate).toFixed(3)}</td>
+        <td ${amtStyle}>${parseFloat(t.amount_usdt).toFixed(2)}</td>
+        <td>${profitCell}</td>
+        <td>${esc(t.bank_name || '—')}</td>
+        <td>${clockCell}</td>
+        <td>${voidCell}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+// ════════════════════════════════════════════════════════════
+//  CLIENT REPORT TAB
+// ════════════════════════════════════════════════════════════
+
+function computeClientSummary() {
+  const map = {};
+  // Use effectiveTxns so voided originals and their correction entries
+  // are not counted in per-client volume totals. Backward-compatible:
+  // older rows without void fields are unaffected.
+  effectiveTxns(_allTxns).forEach(t => {
+    const key = (t.client_cnic && t.client_cnic.trim()) || `name:${(t.client_name || 'Walk-in').toLowerCase()}`;
+    if (!map[key]) {
+      map[key] = { name: t.client_name || 'Walk-in Client', cnic: t.client_cnic || '—', count: 0, volumePkr: 0, volumeUsdt: 0, lastDate: t.timestamp };
+    }
+    map[key].count++;
+    map[key].volumePkr += parseFloat(t.amount_pkr) || 0;
+    map[key].volumeUsdt += parseFloat(t.amount_usdt) || 0;
+    if (t.timestamp > map[key].lastDate) map[key].lastDate = t.timestamp;
+  });
+  return Object.values(map).sort((a, b) => b.volumePkr - a.volumePkr);
+}
+
+function renderClientReportTab() {
+  const q = (document.getElementById('clientSearchInput').value || '').trim().toLowerCase();
+  let summary = computeClientSummary();
+
+  document.getElementById('cliMetTotal').textContent = summary.length;
+  document.getElementById('cliMetTop').textContent = summary.length ? `₨ ${Math.round(summary[0].volumePkr).toLocaleString()}` : '₨ 0';
+  const avgTxns = summary.length ? (summary.reduce((a, c) => a + c.count, 0) / summary.length) : 0;
+  document.getElementById('cliMetAvg').textContent = avgTxns.toFixed(1);
+
+  if (q) {
+    summary = summary.filter(c => `${c.name} ${c.cnic}`.toLowerCase().includes(q));
+  }
+
+  const tbody = document.getElementById('clientTableBody');
+  if (summary.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--muted); padding:30px;">No matching clients.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = summary.map(c => `
+    <tr>
+      <td>${esc(c.name)}</td>
+      <td class="mono">${esc(c.cnic)}</td>
+      <td>${c.count}</td>
+      <td>₨ ${Math.round(c.volumePkr).toLocaleString()}</td>
+      <td>${c.volumeUsdt.toFixed(2)} USDT</td>
+      <td>${new Date(c.lastDate).toLocaleDateString('en-PK')}</td>
+    </tr>
+  `).join('');
+}
+
+// ════════════════════════════════════════════════════════════
+//  FBR / TAX TAB
+// ════════════════════════════════════════════════════════════
+
+function computeMonthlyTaxSummary(year) {
+  const groups = {};
+  // Exclude void pairs: voided originals and their correction entries
+  // should not appear in tax/reporting totals. All rows remain in the
+  // full ledger and audit log — only the aggregation uses effective rows.
+  effectiveTxns(_allTxns).forEach(t => {
+    const y = t.timestamp.substring(0, 4);
+    if (year && y !== String(year)) return;
+    const month = t.timestamp.substring(0, 7);
+    if (!groups[month]) groups[month] = { buy: 0, sell: 0, count: 0, profit: 0, profitCount: 0 };
+    const val = parseFloat(t.amount_pkr) || 0;
+    if (t.txn_type === 'buy') groups[month].buy += val; else groups[month].sell += val;
+    groups[month].count++;
+    if (t.profit_pkr !== null && t.profit_pkr !== undefined && t.profit_pkr !== '') {
+      groups[month].profit += parseFloat(t.profit_pkr) || 0;
+      groups[month].profitCount++;
+    }
+  });
+  return Object.keys(groups).sort().map(m => ({ month: m, ...groups[m] }));
+}
+
+function populateTaxYearOptions() {
+  const sel = document.getElementById('taxYearSelect');
+  const years = Array.from(new Set(_allTxns.map(t => t.timestamp.substring(0, 4)))).sort().reverse();
+  if (years.length === 0) years.push(String(new Date().getFullYear()));
+  sel.innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join('');
+}
+
+function renderTaxSummaryTab() {
+  if (!document.getElementById('taxYearSelect').options.length) populateTaxYearOptions();
+  const year = document.getElementById('taxYearSelect').value || document.getElementById('taxYearSelect').options[0]?.value;
+
+  const monthly = computeMonthlyTaxSummary(year);
+  // Use effectiveTxns for year-level headline metrics so void pairs
+  // are excluded. computeMonthlyTaxSummary already uses effectiveTxns
+  // internally, so monthly rows are also clean.
+  const yearTxns = effectiveTxns(_allTxns.filter(t => t.timestamp.substring(0, 4) === String(year)));
+
+  const totalVol = yearTxns.reduce((a, t) => a + (parseFloat(t.amount_pkr) || 0), 0);
+  const uniqueClients = new Set(yearTxns.map(t => t.client_cnic || t.client_name)).size;
+
+  // Year Total Profit — sums only effective transactions that carry a
+  // profit_pkr value; void pairs are already excluded from yearTxns above.
+  // Years/months with no profit data at all render "—" rather than ₨ 0.
+  const yearProfitTxns = yearTxns.filter(t => t.profit_pkr !== null && t.profit_pkr !== undefined && t.profit_pkr !== '');
+  const yearProfit = yearProfitTxns.reduce((a, t) => a + (parseFloat(t.profit_pkr) || 0), 0);
+
+  const rawYearTxns = _allTxns.filter(t => t.timestamp.substring(0, 4) === String(year));
+  const voidExcludedYear = rawYearTxns.length - yearTxns.length;
+
+  document.getElementById('taxMetTotal').textContent = `₨ ${Math.round(totalVol).toLocaleString()}`;
+  document.getElementById('taxMetCount').textContent = voidExcludedYear > 0
+    ? `${yearTxns.length} (${voidExcludedYear} void-pair row${voidExcludedYear !== 1 ? 's' : ''} excluded)`
+    : String(yearTxns.length);
+  document.getElementById('taxMetClients').textContent = uniqueClients;
+  document.getElementById('taxMetProfit').textContent = yearProfitTxns.length > 0
+    ? `₨ ${Math.round(yearProfit).toLocaleString()}`
+    : '—';
+
+  const tbody = document.getElementById('taxTableBody');
+  if (monthly.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--muted); padding:30px;">No data for this year.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = monthly.map(m => `
+    <tr>
+      <td>${m.month}</td>
+      <td>₨ ${Math.round(m.buy).toLocaleString()}</td>
+      <td>₨ ${Math.round(m.sell).toLocaleString()}</td>
+      <td>₨ ${Math.round(m.buy + m.sell).toLocaleString()}</td>
+      <td style="color:${m.profitCount === 0 ? 'var(--muted)' : (m.profit < 0 ? '#FCA5A5' : 'var(--green)')};">${m.profitCount > 0 ? '₨ ' + Math.round(m.profit).toLocaleString() : '—'}</td>
+      <td>${m.count}</td>
+    </tr>
+  `).join('') + `
+    <tr style="font-weight:700; background:rgba(14,165,233,0.04); border-top:2px solid var(--border);">
+      <td>Total</td>
+      <td>₨ ${Math.round(monthly.reduce((a,m)=>a+m.buy,0)).toLocaleString()}</td>
+      <td>₨ ${Math.round(monthly.reduce((a,m)=>a+m.sell,0)).toLocaleString()}</td>
+      <td>₨ ${Math.round(monthly.reduce((a,m)=>a+m.buy+m.sell,0)).toLocaleString()}</td>
+      <td style="color:${yearProfitTxns.length === 0 ? 'var(--muted)' : (yearProfit < 0 ? '#FCA5A5' : 'var(--green)')};">${yearProfitTxns.length > 0 ? '₨ ' + Math.round(yearProfit).toLocaleString() : '—'}</td>
+      <td>${monthly.reduce((a,m)=>a+m.count,0)}</td>
+    </tr>
+  `;
+}
+
+// ════════════════════════════════════════════════════════════
+//  EXCEL (.xlsx) EXPORTS — SheetJS
+// ════════════════════════════════════════════════════════════
+
+function ensureXLSX() {
+  if (typeof XLSX === 'undefined') {
+    Toast.show('Excel engine still loading — please try again in a moment.', 'warning');
+    return false;
+  }
+  return true;
+}
+
+function exportStatementAsExcel() {
+  if (_filteredStatementData.length === 0) {
+    Toast.show('Run a ledger statement first (Ledger Statement tab) before exporting.', 'warning');
+    return;
+  }
+  if (!ensureXLSX()) return;
+
+  const header = ['Chain Index', 'Receipt Number', 'Type', 'Timestamp', 'Amount PKR', 'Rate', 'Amount USDT', 'Cost Rate', 'Profit PKR', 'Client Name', 'Client CNIC', 'Bank Name', 'Hash', 'Void Status'];
+  const rows = _filteredStatementData.map(t => [
+    t.chain_index, t.receipt_number, t.txn_type.toUpperCase(), t.timestamp,
+    parseFloat(t.amount_pkr), parseFloat(t.exchange_rate), parseFloat(t.amount_usdt),
+    (t.cost_rate === null || t.cost_rate === undefined) ? '' : parseFloat(t.cost_rate),
+    (t.profit_pkr === null || t.profit_pkr === undefined) ? '' : parseFloat(t.profit_pkr),
+    t.client_name || '', t.client_cnic || '', t.bank_name || '', t.hash,
+    voidStatusLabel(t)
+  ]);
+
+  const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Statement');
+
+  const start = document.getElementById('fStartDate').value;
+  const end = document.getElementById('fEndDate').value;
+  XLSX.writeFile(wb, `Statement-Export-${start}-to-${end}.xlsx`);
+  AuditLog.add('REPORT_EXPORTED', `Excel statement export: ${start} to ${end}`);
+  Toast.show('📊 Statement Excel workbook downloaded.', 'success');
+}
+
+async function exportFullWorkbookExcel() {
+  if (!ensureXLSX()) return;
+  await _ensureAllTxns();   // SCALE-FIX 2: Export Center never visits Log/Clients/Tax tabs, so the full dataset must be loaded explicitly here.
+  if (_allTxns.length === 0) {
+    Toast.show('No transactions to export yet.', 'warning');
+    return;
+  }
+
+  const wb = XLSX.utils.book_new();
+
+  // Sheet 1: All Transactions (full audit trail — all rows including voids)
+  const txnHeader = ['Chain Index', 'Receipt Number', 'Type', 'Timestamp', 'Amount PKR', 'Rate', 'Amount USDT', 'Cost Rate', 'Profit PKR', 'Client Name', 'Client CNIC', 'Bank Name', 'Bank Last4', 'Payment Ref', 'Order ID', 'Hash', 'Prev Hash', 'Void Status'];
+  const txnRows = _allTxns.map(t => [
+    t.chain_index, t.receipt_number, t.txn_type.toUpperCase(), t.timestamp,
+    parseFloat(t.amount_pkr), parseFloat(t.exchange_rate), parseFloat(t.amount_usdt),
+    (t.cost_rate === null || t.cost_rate === undefined) ? '' : parseFloat(t.cost_rate),
+    (t.profit_pkr === null || t.profit_pkr === undefined) ? '' : parseFloat(t.profit_pkr),
+    t.client_name || '', t.client_cnic || '', t.bank_name || '', t.bank_last4 || '',
+    t.payment_ref || '', t.order_id || '', t.hash, t.prev_hash,
+    voidStatusLabel(t)
+  ]);
+  const wsTxn = XLSX.utils.aoa_to_sheet([txnHeader, ...txnRows]);
+  XLSX.utils.book_append_sheet(wb, wsTxn, 'All Transactions');
+
+  // Sheet 2: Client Summary — uses effectiveTxns (via computeClientSummary)
+  const clients = computeClientSummary();
+  const cliHeader = ['Client Name', 'CNIC', 'Transactions', 'Total Volume PKR', 'Total Volume USDT', 'Last Transaction'];
+  const cliRows = clients.map(c => [c.name, c.cnic, c.count, Math.round(c.volumePkr), parseFloat(c.volumeUsdt.toFixed(2)), c.lastDate]);
+  const wsCli = XLSX.utils.aoa_to_sheet([cliHeader, ...cliRows]);
+  XLSX.utils.book_append_sheet(wb, wsCli, 'Client Summary');
+
+  // Sheet 3: Monthly Volume (all years) — uses effectiveTxns via computeMonthlyTaxSummary
+  const monthly = computeMonthlyTaxSummary(null);
+  const monHeader = ['Month', 'Buy Volume PKR', 'Sell Volume PKR', 'Total Volume PKR', 'Profit PKR', 'Transactions'];
+  const monRows = monthly.map(m => [
+    m.month, Math.round(m.buy), Math.round(m.sell), Math.round(m.buy + m.sell),
+    m.profitCount > 0 ? Math.round(m.profit) : '', m.count
+  ]);
+  const monTotalProfitCount = monthly.reduce((a,m) => a + m.profitCount, 0);
+  monRows.push([
+    'Total',
+    Math.round(monthly.reduce((a,m)=>a+m.buy,0)),
+    Math.round(monthly.reduce((a,m)=>a+m.sell,0)),
+    Math.round(monthly.reduce((a,m)=>a+m.buy+m.sell,0)),
+    monTotalProfitCount > 0 ? Math.round(monthly.reduce((a,m)=>a+m.profit,0)) : '',
+    monthly.reduce((a,m)=>a+m.count,0)
+  ]);
+  const wsMon = XLSX.utils.aoa_to_sheet([monHeader, ...monRows]);
+  XLSX.utils.book_append_sheet(wb, wsMon, 'Monthly Volume');
+
+  const today = new Date().toISOString().split('T')[0];
+  XLSX.writeFile(wb, `DEMS-Full-Report-${today}.xlsx`);
+  AuditLog.add('REPORT_EXPORTED', `Full Excel workbook export: ${_allTxns.length} blocks`);
+  Toast.show('📊 Full Excel workbook downloaded.', 'success');
+}
+
+// ════════════════════════════════════════════════════════════
+//  CSV EXPORTS — Log / Clients / Tax (secondary options)
+// ════════════════════════════════════════════════════════════
+
+async function exportTransactionLogCsv() {
+  await _ensureAllTxns();   // SCALE-FIX 2: may be called from Export Center without having visited the Log tab first.
+  const data = _logFiltered.length ? _logFiltered : _allTxns;
+  if (data.length === 0) { Toast.show('No transactions to export.', 'warning'); return; }
+
+  const headers = ['Chain Index', 'Receipt Number', 'Type', 'Timestamp', 'Amount PKR', 'Rate', 'Amount USDT', 'Cost Rate', 'Profit PKR', 'Client Name', 'Client CNIC', 'Bank Name', 'Void Status'];
+  const csvRows = [headers.join(',')];
+  data.forEach(t => {
+    csvRows.push([
+      t.chain_index, `"${t.receipt_number}"`, `"${t.txn_type.toUpperCase()}"`, `"${t.timestamp}"`,
+      t.amount_pkr, t.exchange_rate, t.amount_usdt,
+      (t.cost_rate === null || t.cost_rate === undefined) ? '' : t.cost_rate,
+      (t.profit_pkr === null || t.profit_pkr === undefined) ? '' : t.profit_pkr,
+      `"${(t.client_name || '').replace(/"/g, '""')}"`, `"${t.client_cnic || ''}"`, `"${(t.bank_name || '').replace(/"/g, '""')}"`,
+      `"${voidStatusLabel(t)}"`
+    ].join(','));
+  });
+
+  downloadCsvBlob(csvRows.join('\n'), `Transaction-Log-${new Date().toISOString().split('T')[0]}.csv`);
+  Toast.show('📄 Transaction log CSV downloaded.', 'success');
+}
+
+async function exportClientReportCsv() {
+  await _ensureAllTxns();   // SCALE-FIX 2: may be called from Export Center without having visited the Clients tab first.
+  const clients = computeClientSummary();
+  if (clients.length === 0) { Toast.show('No client data to export.', 'warning'); return; }
+
+  const headers = ['Client Name', 'CNIC', 'Transactions', 'Total Volume PKR', 'Total Volume USDT', 'Last Transaction'];
+  const csvRows = [headers.join(',')];
+  clients.forEach(c => {
+    csvRows.push([
+      `"${c.name.replace(/"/g, '""')}"`, `"${c.cnic}"`, c.count, Math.round(c.volumePkr), c.volumeUsdt.toFixed(2), `"${c.lastDate}"`
+    ].join(','));
+  });
+
+  downloadCsvBlob(csvRows.join('\n'), `Client-Report-${new Date().toISOString().split('T')[0]}.csv`);
+  Toast.show('📄 Client report CSV downloaded.', 'success');
+}
+
+async function exportTaxSummaryCsv() {
+  await _ensureAllTxns();   // SCALE-FIX 2: may be called from Export Center without having visited the Tax tab first.
+  const sel = document.getElementById('taxYearSelect');
+  if (!sel.options.length) populateTaxYearOptions();   // dropdown is empty if Tax tab was never opened
+  const year = sel.value || sel.options[0]?.value;
+  const monthly = computeMonthlyTaxSummary(year);
+  if (monthly.length === 0) { Toast.show('No tax data to export for this year.', 'warning'); return; }
+
+  const headers = ['Month', 'Buy Volume PKR', 'Sell Volume PKR', 'Total Volume PKR', 'Profit PKR', 'Transactions', 'Note'];
+  const csvRows = [headers.join(',')];
+  // Totals already exclude void pairs (computeMonthlyTaxSummary uses effectiveTxns)
+  const totalVoidExcluded = _allTxns.length - effectiveTxns(_allTxns).length;
+  monthly.forEach(m => {
+    csvRows.push([
+      m.month, Math.round(m.buy), Math.round(m.sell), Math.round(m.buy + m.sell),
+      m.profitCount > 0 ? Math.round(m.profit) : '', m.count,
+      totalVoidExcluded > 0 ? `"Void pairs excluded from totals"` : ''
+    ].join(','));
+  });
+
+  const totalProfitCount = monthly.reduce((a,m) => a + m.profitCount, 0);
+  const totalProfit = monthly.reduce((a,m) => a + m.profit, 0);
+  csvRows.push([
+    'Total',
+    Math.round(monthly.reduce((a,m)=>a+m.buy,0)),
+    Math.round(monthly.reduce((a,m)=>a+m.sell,0)),
+    Math.round(monthly.reduce((a,m)=>a+m.buy+m.sell,0)),
+    totalProfitCount > 0 ? Math.round(totalProfit) : '',
+    monthly.reduce((a,m)=>a+m.count,0),
+    totalVoidExcluded > 0 ? `"${totalVoidExcluded} void-pair rows excluded across all months"` : ''
+  ].join(','));
+
+  downloadCsvBlob(csvRows.join('\n'), `FBR-Tax-Summary-${year}.csv`);
+  Toast.show('📄 Tax summary CSV downloaded.', 'success');
+}
+
+function downloadCsvBlob(content, filename) {
+  const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+// ── UTILITIES ─────────────────────────────────────────────
+function setTxt(id, v) { const e = document.getElementById(id); if (e) e.textContent = v; }
+function esc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+function setupSession() {
+  function tick() {
+    try {
+      const raw = localStorage.getItem('dems_session');
+      if (!raw) return;
+      const s = JSON.parse(raw);
+      const left = Math.max(0, Math.floor((s.expiresAt - Date.now()) / 1000));
+      const m = Math.floor(left / 60), sec = left % 60;
+      setTxt('sessionTimer', m + ':' + String(sec).padStart(2, '0'));
+    } catch(e) {}
+  }
+  tick(); setInterval(tick, 1000);
+}
+
+function setupLogout() {
+  document.getElementById('logoutBtn').addEventListener('click', () => { Auth.logout(); });
+}
+
+function setupMobileNav() {
+  const btn = document.getElementById('mobileMenuBtn');
+  const sb  = document.getElementById('sidebar');
+  const ov  = document.getElementById('mobileOverlay');
+  if (!btn) return;
+  btn.addEventListener('click', () => { sb.classList.toggle('open'); ov.classList.toggle('show'); });
+  ov.addEventListener('click', () => { sb.classList.remove('open'); ov.classList.remove('show'); });
+}
+
+const Toast = {
+  show(msg, type='info', dur=3500) {
+    const c = document.getElementById('toastContainer');
+    const t = document.createElement('div');
+    const icons = { success:'✅', error:'❌', info:'ℹ️', warning:'⚠️' };
+    t.className = `toast ${type}`;
+    t.innerHTML = `<span>${icons[type]||'ℹ️'}</span><span>${msg}</span>`;
+    c.appendChild(t);
+    setTimeout(() => { t.style.opacity='0'; t.style.transition='opacity 0.3s'; setTimeout(()=>t.remove(),300); }, dur);
+  }
+};
+</script>
+</body>
+</html>
