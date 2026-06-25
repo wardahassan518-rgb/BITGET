@@ -571,7 +571,20 @@ function setupCalculator() {
 
   // Multi-direction synchronization
   pkrIn.addEventListener('input', () => { _calculatorFocused = 'pkr'; runCalculation(); suggestProfit(); updateAmlCnicIndicator(); });
-  rateIn.addEventListener('input', () => { runCalculation(); suggestProfit(); updateAmlCnicIndicator(); });
+  // FIX 1: Rate change pe _calculatorFocused set karo.
+  // Logic: agar PKR mein value hai (ya dono empty hain) → USDT recalculate karo ('pkr' mode).
+  // Sirf tab 'usdt' mode use karo jab USDT mein value ho lekin PKR empty ho
+  // (user ne USDT pehle type kiya tha aur ab rate update kar raha hai).
+  rateIn.addEventListener('input', () => {
+    const pkrHasValue  = parseFloat(pkrIn.value) > 0;
+    const usdtHasValue = parseFloat(usdtIn.value) > 0;
+    if (!pkrHasValue && usdtHasValue) {
+      _calculatorFocused = 'usdt'; // PKR empty, USDT present → PKR recalculate karo
+    } else {
+      _calculatorFocused = 'pkr';  // default: USDT recalculate karo (most common workflow)
+    }
+    runCalculation(); suggestProfit(); updateAmlCnicIndicator();
+  });
   usdtIn.addEventListener('input', () => { _calculatorFocused = 'usdt'; runCalculation(); suggestProfit(); updateAmlCnicIndicator(); });
 
   // Profit suggestion — recalculate whenever cost rate changes
@@ -818,6 +831,16 @@ function setupScreenshotUploader() {
     const files = e.dataTransfer.files;
     if (files.length) handleImageFile(files[0]);
   });
+
+  // FIX 2: Zone click → file dialog open karo.
+  // input ke paas position:absolute;inset:0 hai lekin kuch browsers mein
+  // child elements (upload-icon, upload-title, etc.) input ke upar render
+  // hote hain aur click intercept karte hain. Zone ka click event
+  // explicitly input.click() call karo.
+  // stopPropagation input par: nahi toh zone-click → input.click() → zone-click
+  // ka infinite loop / double-trigger ban-ta (click event bubble karta hai).
+  zone.addEventListener('click', () => input.click());
+  input.addEventListener('click', (e) => e.stopPropagation());
 
   input.addEventListener('change', () => {
     if (input.files.length) handleImageFile(input.files[0]);
