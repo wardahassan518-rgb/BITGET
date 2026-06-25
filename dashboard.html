@@ -15,7 +15,7 @@
 <title>Dashboard — DEMS</title>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" integrity="sha512-ZDrhLNqB/xr+kCEhoasNKDr+NTYHAkYEEU4zc2cha3AVFGjkDCG8EfMsavWMJM0aWbPubS4/dbYPmRp90ZDe5A==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <style>
 /* ── LAYOUT ─────────────────────────────────────────────── */
 .app-shell { display: flex; min-height: 100vh; }
@@ -885,6 +885,12 @@ function renderProfitDelta(noPriorData, curr, prev, hadPrev) {
 
 // ── VOLUME CHART ──────────────────────────────────────────
 function renderVolumeChart(txns) {
+  if (typeof Chart === 'undefined') {
+    console.error('Chart.js failed to load. Check CDN or network.');
+    const wrap = document.querySelector('.chart-wrap');
+    if (wrap) wrap.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted);font-size:13px;">⚠️ Chart library failed to load. Check internet connection.</div>';
+    return;
+  }
   const ctx = document.getElementById('volumeChart').getContext('2d');
 
   const days = _period > 0 ? _period : 180;
@@ -963,6 +969,7 @@ function renderVolumeChart(txns) {
 
 // ── DONUT CHART ───────────────────────────────────────────
 function renderDonut(txns) {
+  if (typeof Chart === 'undefined') return;
   const ctx = document.getElementById('donutChart').getContext('2d');
   const buyCount  = txns.filter(t => t.txn_type === 'buy').length;
   const sellCount = txns.filter(t => t.txn_type === 'sell').length;
