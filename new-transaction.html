@@ -514,18 +514,48 @@ window.addEventListener('DOMContentLoaded', async () => {
   // CRITICAL Security Guard step
   if (!Auth.requireAuth()) return;
 
-  await DB.init();
-  await loadProfile();
-  await loadClientDirectory();
-
+  // ── FIX: wire up the calculator + core UI FIRST, independent of the
+  // DB/profile/client-loading chain below. setupCalculator() doesn't need
+  // any database data to work — it only reads/writes the PKR, Rate and
+  // USDT fields. Previously it was registered AFTER three sequential
+  // `await`s (DB.init → loadProfile → loadClientDirectory); if any one of
+  // those rejected (e.g. IndexedDB blocked in private browsing, sql-wasm
+  // failing to load, a malformed profile record, etc.) the whole async
+  // function stopped right there and setupCalculator() — along with the
+  // lock button's click handler — never ran at all. That would silently
+  // kill the PKR→USDT autosync with zero relation to the calculator math
+  // itself. Wiring these up first means the autosync always works, even
+  // if the database layer below has a problem.
   setupSession();
   setupMobileNav();
   setupLogout();
   setupCalculator();
-  setupClientAutocompleter();
   setupScreenshotUploader();
-
   document.getElementById('btnLockTransaction').addEventListener('click', saveAndLockTransaction);
+
+  // Each DB-dependent step now fails on its own instead of taking the
+  // others down with it.
+  try {
+    await DB.init();
+  } catch (e) {
+    console.error('[NewTransaction] DB.init failed:', e);
+    Toast.show('⚠️ Database engine failed to load — transactions cannot be saved until this is fixed.', 'error', 7000);
+  }
+  try {
+    await loadProfile();
+  } catch (e) {
+    console.error('[NewTransaction] loadProfile failed:', e);
+  }
+  try {
+    await loadClientDirectory();
+  } catch (e) {
+    console.error('[NewTransaction] loadClientDirectory failed:', e);
+  }
+
+  // Client name/CNIC autocomplete depends on _loadedClients, so it's wired
+  // up after the directory load attempt (it works fine even if that list
+  // ended up empty due to a failure above).
+  setupClientAutocompleter();
 });
 
 // ── SIDEBAR PROFILE ───────────────────────────────────────
@@ -683,17 +713,24 @@ function runCalculation() {
   const rateIn = document.getElementById('fExchangeRate');
   const usdtIn = document.getElementById('fAmountUsdt');
 
-  const pkr  = parseFloat(pkrIn.value) || 0;
+  const pkr  = parseFloat(pkrIn.value)  || 0;
   const rate = parseFloat(rateIn.value) || 0;
   const usdt = parseFloat(usdtIn.value) || 0;
 
   if (rate > 0) {
     if (_calculatorFocused === 'pkr') {
-      // Calculate USDT
-      usdtIn.value = (pkr / rate).toFixed(2);
+      // Calculate USDT from PKR ÷ Rate.
+      // BUG-FIX: previously this always wrote "0.00" into USDT when PKR
+      // was 0/empty (e.g. Rate typed before PKR). That non-empty "0.00"
+      // then fooled the Rate listener's usdtHasValue check into thinking
+      // the user had manually entered a USDT amount, which could flip
+      // _calculatorFocused to 'usdt' on the next rate keystroke and stop
+      // PKR→USDT autosync from then on. Leaving USDT blank when there is
+      // nothing to calculate yet avoids that trap entirely.
+      usdtIn.value = pkr > 0 ? (pkr / rate).toFixed(2) : '';
     } else if (_calculatorFocused === 'usdt') {
-      // Calculate PKR
-      pkrIn.value = (usdt * rate).toFixed(2);
+      // Calculate PKR from USDT × Rate (same fix, mirrored).
+      pkrIn.value = usdt > 0 ? (usdt * rate).toFixed(2) : '';
     }
   } else if (pkr > 0 && usdt > 0) {
     // If rate is empty or edited, calculate rate based on PKR & USDT
