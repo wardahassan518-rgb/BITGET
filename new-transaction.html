@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="Content-Security-Policy"
   content="default-src 'self';
-           script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com;
+           script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://cdnjs.cloudflare.com https://fonts.googleapis.com;
            style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com;
            font-src https://fonts.gstatic.com;
            connect-src 'self' https://worldtimeapi.org;
@@ -514,29 +514,27 @@ window.addEventListener('DOMContentLoaded', async () => {
   // CRITICAL Security Guard step
   if (!Auth.requireAuth()) return;
 
-  // FIX 3: UI-only wiring (calculator autosync, mobile nav, lock button, etc.)
-  // must NEVER depend on DB/profile loading succeeding first.
-  // Pehle yeh sab attach karo — agar neeche DB.init()/loadProfile() fail ho
-  // (storage quota, private mode, version mismatch, etc.), tab bhi PKR/Rate/USDT
-  // autosync, screenshot upload, aur Lock button kaam karte rahain.
+  // ── UI setup runs immediately — independent of DB so the calculator
+  // always works even if WebAssembly / DB init is delayed or fails.
   setupSession();
   setupMobileNav();
   setupLogout();
-  setupCalculator();
-  setupClientAutocompleter();
+  setupCalculator();          // ← moved BEFORE DB.init: USDT autosync needs no DB
   setupScreenshotUploader();
-  document.getElementById('btnLockTransaction').addEventListener('click', saveAndLockTransaction);
 
-  // Data-dependent setup — wrapped so a DB failure here can't silently
-  // kill everything wired up above.
   try {
     await DB.init();
-    await loadProfile();
-    await loadClientDirectory();
-  } catch (e) {
-    console.error('[NewTransaction] DB/profile init failed:', e);
-    Toast.show('⚠️ Data load mein masla hua (client list/profile shayad load na ho) — lekin form kaam karega.', 'warning', 6000);
+  } catch (dbErr) {
+    console.warn('[DEMS] DB init failed — running in limited mode:', dbErr);
+    Toast.show('⚠️ Database unavailable — calculator still works but saving is disabled.', 'warning', 6000);
   }
+
+  await loadProfile();
+  await loadClientDirectory();
+
+  setupClientAutocompleter();
+
+  document.getElementById('btnLockTransaction').addEventListener('click', saveAndLockTransaction);
 });
 
 // ── SIDEBAR PROFILE ───────────────────────────────────────
