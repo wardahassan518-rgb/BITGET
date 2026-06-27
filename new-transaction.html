@@ -1151,20 +1151,33 @@ async function saveAndLockTransaction() {
         AuditLog.add('ATTACHMENT_SAVED', `txn_id: ${response.txnId} | attachment_id: ${response.attachmentId}`);
       }
 
-      // Flush immediately before redirecting so both the transaction row and
-      // the attachment row are persisted to localStorage. The 2-second
-      // debounce window would otherwise still be open during the navigation.
-      DB.flush();
+      // ── ROOT-CAUSE FIX: await the IndexedDB flush before navigating away.
+      // DB.flush() returns a Promise that resolves only after the IDB
+      // write transaction commits. Without await, the redirect races the
+      // async write — receipt.html can open IndexedDB before the new row
+      // is persisted and reads the OLD database, finding no transaction.
+      // Awaiting guarantees the data is on disk before the URL changes.
+      console.info('[Txn] Flushing DB to IndexedDB before redirect…');
+      try {
+        await DB.flush();
+        console.info('[Txn] DB flush complete — safe to navigate.');
+      } catch (flushErr) {
+        // Non-fatal: the in-memory DB has the record; if IDB fails here
+        // we still navigate and let receipt.html retry.
+        console.warn('[Txn] DB flush warning:', flushErr.message);
+      }
 
       const clockNote = response.record?.clock_unverified
         ? ' ⚠ Saved with clock-unverified flag.'
         : '';
       Toast.show(`🔥 Block chained! Receipt: ${response.receiptNumber}${clockNote}`, 'success');
-      
-      // Auto redirect to receipt viewer
+
+      // Short pause so the success toast is readable, then navigate.
+      // The flush above already guarantees the data is persisted, so
+      // this timeout is only for UX (toast visibility), not a safety buffer.
       setTimeout(() => {
         window.location.href = `receipt.html?receipt=${encodeURIComponent(response.receiptNumber)}`;
-      }, 1000);
+      }, 900);
     } else {
       Toast.show(`Error chaining block: ${response.error}`, 'error');
       lockBtn.disabled = false;

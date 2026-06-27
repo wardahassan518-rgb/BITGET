@@ -506,13 +506,36 @@ window.addEventListener('DOMContentLoaded', async () => {
 async function loadReceiptAndProfileDetails() {
   try {
     // 1. Get Txn block
+    // ROOT-CAUSE FIX: If the transaction isn't found on the first read,
+    // the new-transaction page may still be flushing its IndexedDB write.
+    // We retry up to 3 times (with increasing delays) before giving up.
+    // In the fixed new-transaction.html, DB.flush() is now awaited before
+    // the redirect, so this retry will almost never trigger — but it acts
+    // as a defensive fallback for any edge case or older page version.
     _txn = await DB.get(`SELECT * FROM transactions WHERE receipt_number = ?`, [_receiptNumber]);
 
     if (!_txn) {
+      console.warn('[Receipt] Transaction not found on first DB read — waiting for potential IDB flush…');
+      const retryDelays = [500, 1000, 1500];
+      for (const delay of retryDelays) {
+        await new Promise(r => setTimeout(r, delay));
+        _txn = await DB.get(`SELECT * FROM transactions WHERE receipt_number = ?`, [_receiptNumber]);
+        if (_txn) {
+          console.info(`[Receipt] Transaction found after ${delay}ms retry.`);
+          break;
+        }
+        console.warn(`[Receipt] Still not found after ${delay}ms, retrying…`);
+      }
+    }
+
+    if (!_txn) {
+      console.error(`[Receipt] Transaction "${_receiptNumber}" not found after all retries.`);
       Toast.show(`Block ${_receiptNumber} not found.`, 'error');
       document.getElementById('receiptCard').innerHTML = `<div style="padding:100px 20px; text-align:center; color:var(--muted);">Block ${_receiptNumber} has not been found in sql database.</div>`;
       return;
     }
+
+    console.info(`[Receipt] Transaction loaded: chain_index=${_txn.chain_index}, receipt=${_txn.receipt_number}`);
 
     // 2. Get Profile details using camelCase fields securely
     const p = await Profile.get();
@@ -567,9 +590,25 @@ async function loadReceiptAndProfileDetails() {
     }
 
     // 4. Set blockchain coordinate markers
-    document.getElementById('bChainIndex').textContent = `Block #${_txn.chain_index}`;
-    document.getElementById('bHash').textContent = _txn.hash.toUpperCase();
-    document.getElementById('bPrevHash').textContent = _txn.prev_hash.toUpperCase();
+    // ROOT-CAUSE FIX: Guard against null/undefined on every field.
+    // A bare _txn.hash.toUpperCase() throws TypeError when hash is null,
+    // leaving bHash and bPrevHash permanently at "Calculating…", and also
+    // preventing bChainIndex from ever being set (all three are skipped by
+    // the catch block). Added null guards eliminate that throw entirely.
+    const _chainIdx = (_txn.chain_index !== null && _txn.chain_index !== undefined)
+      ? _txn.chain_index
+      : '?';
+    const _hashVal   = _txn.hash      ? _txn.hash.toUpperCase()      : '(hash not stored)';
+    const _prevVal   = _txn.prev_hash ? _txn.prev_hash.toUpperCase() : '0'.repeat(64).toUpperCase();
+
+    document.getElementById('bChainIndex').textContent = `Block #${_chainIdx}`;
+    document.getElementById('bHash').textContent       = _hashVal;
+    document.getElementById('bPrevHash').textContent   = _prevVal;
+
+    console.info('[Receipt] Blockchain panel populated — Block #' + _chainIdx, {
+      hash:     _hashVal.slice(0, 16) + '…',
+      prevHash: _prevVal.slice(0, 16) + '…'
+    });
 
     // 4b. Void / Correction status — two independent cases:
     //   (a) THIS record is itself a void/correction entry (_txn.is_void) —
@@ -668,15 +707,33 @@ async function loadReceiptAndProfileDetails() {
 
 // ── DOWNLOAD RECEIPT AS PDF ───────────────────────────────
 function downloadReceiptAsPdf() {
-  if (!_txn) return;
+  // ROOT-CAUSE FIX: Guard every failure path and wrap the entire jsPDF
+  // sequence in a try/catch so errors surface as toasts instead of
+  // silently aborting the download with no user feedback.
+
+  if (!_txn) {
+    Toast.show('Receipt not fully loaded yet — please wait a moment and try again.', 'warning');
+    return;
+  }
 
   if (!window.jspdf || !window.jspdf.jsPDF) {
     Toast.show('PDF engine still loading — please try again in a moment.', 'error');
     return;
   }
 
+  console.info('[PDF] Starting PDF generation for receipt:', _txn.receipt_number);
+
   const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  let doc;
+  try {
+    doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  } catch (initErr) {
+    console.error('[PDF] jsPDF constructor failed:', initErr);
+    Toast.show('PDF engine failed to initialise: ' + initErr.message, 'error');
+    return;
+  }
+
+  try {
 
   const logo = document.getElementById('rBizLogo').textContent;
   const biz  = document.getElementById('rBizName').textContent;
@@ -774,7 +831,10 @@ function downloadReceiptAsPdf() {
   doc.setFont('courier', 'normal');
   doc.setFontSize(8.5);
   doc.setTextColor(16, 150, 100);
-  doc.text(_txn.hash.toUpperCase(), 15, y, { maxWidth: 180 });
+  // ROOT-CAUSE FIX: null-guard — _txn.hash must never be called as
+  // a method if it is null/undefined (throws TypeError, aborting PDF).
+  const _pdfHash = (_txn.hash || 'HASH NOT AVAILABLE').toUpperCase();
+  doc.text(_pdfHash, 15, y, { maxWidth: 180 });
   y += 12;
 
   // QR code (same verify URL as the on-page text link)
@@ -796,11 +856,19 @@ function downloadReceiptAsPdf() {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   doc.setTextColor(150);
-  doc.text('POWERED BY DEMS BLOCKCHAIN CORE — Cryptographically Chained (DEMS-v1)', 105, 285, { align: 'center' });
+  doc.text('POWERED BY DEMS BLOCKCHAIN CORE — Cryptographically Chained (' + (_txn.hash_version || 'DEMS-v2') + ')', 105, 285, { align: 'center' });
 
-  doc.save(`Receipt-${_txn.receipt_number}.pdf`);
-  AuditLog.add('RECEIPT_PDF_DOWNLOADED', `Receipt: ${_txn.receipt_number}`);
-  Toast.show('📥 PDF receipt downloaded.', 'success');
+    doc.save(`Receipt-${_txn.receipt_number}.pdf`);
+    AuditLog.add('RECEIPT_PDF_DOWNLOADED', `Receipt: ${_txn.receipt_number}`);
+    console.info('[PDF] PDF saved successfully:', `Receipt-${_txn.receipt_number}.pdf`);
+    Toast.show('📥 PDF receipt downloaded.', 'success');
+
+  } catch (e) {
+    // Any jsPDF operation that throws is caught here instead of propagating
+    // silently as an uncaught error with no user-visible feedback.
+    console.error('[PDF] Generation failed at runtime:', e);
+    Toast.show('PDF generation failed: ' + e.message, 'error');
+  }
 }
 
 // ── SCREENSHOT VIEW MODAL LAYOUT ─────────────────────────
