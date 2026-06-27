@@ -144,7 +144,9 @@
 /* QR block */
 .rec-qr-row { display: flex; align-items: center; justify-content: center; gap: 18px; margin-bottom: 18px; text-align: left; background: #fafafa; padding: 14px 20px; border-radius: var(--radius-md); border: 1px solid #f0f0f0; }
 .rec-qr-img { width: 90px; height: 90px; border: 1px solid #e5e7eb; background: #fff; padding: 3px; border-radius: var(--radius-xs); display: flex; align-items: center; justify-content: center; overflow: hidden; }
-.rec-qr-img img { display: none; } /* qrcode.js fallback <img> hidden; canvas is the visible render */
+/* qrcode.js creates <canvas> → draws QR → converts to <img> → removes canvas in img.onload.
+   Do NOT add display:none for .rec-qr-img img — qrcodejs reveals the img via style.display=""
+   which clears the inline style; any CSS rule here would win and permanently hide the QR. */
 .rec-qr-info { flex: 1; }
 .rec-qr-title { font-family: var(--font-display); font-size: 11.5px; font-weight: 700; color: #111827; margin-bottom: 3px; }
 .rec-qr-link { font-family: var(--font-mono); font-size: 10px; color: #0284c7; word-break: break-all; display: block; margin-top: 4px; text-decoration: none; }
@@ -681,27 +683,76 @@ async function loadReceiptAndProfileDetails() {
     const basePath = window.location.pathname.replace(/\/[^/]*$/, '/');
     const verifyLink = `${window.location.origin}${basePath}verify.html?receipt=${encodeURIComponent(_txn.receipt_number)}`;
     _verifyLink = verifyLink;
+    console.info('[QR] Step 1 — Verify URL built:', verifyLink);
 
     // Set text link values
     const linkEl = document.getElementById('rQrLinkText');
     linkEl.href = verifyLink;
-    linkEl.innerHTML = `${window.location.host}/verify.html?receipt=${_txn.receipt_number.substring(0,12)}…`;
+    linkEl.innerHTML = `${window.location.host}${basePath}verify.html?receipt=${_txn.receipt_number.substring(0,12)}…`;
 
-    // Offline client-side QR generation (no external network call).
-    // Encodes the EXACT same verifyLink used by the text link above.
-    const qrContainer = document.getElementById('rQrImage');
-    qrContainer.innerHTML = '';
-    new QRCode(qrContainer, {
-      text: verifyLink,
-      width: 84,
-      height: 84,
-      colorDark: '#0e1a2e',
-      colorLight: '#ffffff',
-      correctLevel: QRCode.CorrectLevel.M
-    });
-    // Capture a PNG data URL of the generated QR for reuse in the PDF export.
-    const qrCanvas = qrContainer.querySelector('canvas');
-    _qrDataUrl = qrCanvas ? qrCanvas.toDataURL('image/png') : null;
+    // ── QR CODE GENERATION ────────────────────────────────────
+    // Diagnostic step 2: check library loaded
+    if (typeof QRCode === 'undefined') {
+      console.error('[QR] FATAL — qrcode.js library not loaded. Check CDN script tag and CSP.');
+      Toast.show('QR library failed to load.', 'error');
+    } else {
+      console.info('[QR] Step 2 — QRCode library confirmed loaded.');
+
+      const qrContainer = document.getElementById('rQrImage');
+      if (!qrContainer) {
+        console.error('[QR] FATAL — #rQrImage container not found in DOM.');
+      } else {
+        console.info('[QR] Step 3 — Container found:', qrContainer);
+        qrContainer.innerHTML = ''; // clear any previous QR
+
+        // qrcodejs flow (v1.0.0):
+        //   1. Creates <canvas>, draws QR pixels on it.
+        //   2. Creates <img style="display:none">, sets img.src = canvas.toDataURL().
+        //   3. In img.onload (async): removes canvas, does img.style.display = "".
+        //      → IMPORTANT: capture canvas BEFORE onload fires (i.e. synchronously here).
+        //      → Do NOT add CSS "img { display:none }" — that re-hides the img when
+        //        onload clears the inline style and CSS cascade wins.
+        new QRCode(qrContainer, {
+          text: verifyLink,
+          width: 84,
+          height: 84,
+          colorDark:  '#111827',
+          colorLight: '#ffffff',
+          correctLevel: QRCode.CorrectLevel.M
+        });
+
+        // Step 4: capture canvas synchronously — it still exists before onload removes it
+        const qrCanvas = qrContainer.querySelector('canvas');
+        if (qrCanvas) {
+          _qrDataUrl = qrCanvas.toDataURL('image/png');
+          console.info('[QR] Step 4 — Canvas captured synchronously, dataURL length:', _qrDataUrl.length);
+        } else {
+          // Canvas not present — library may have used table fallback.
+          // Try capturing from img after a short delay as a safety net.
+          console.warn('[QR] Step 4 — Canvas not found synchronously; scheduling img fallback capture.');
+          setTimeout(() => {
+            const qrImg = qrContainer.querySelector('img');
+            if (qrImg && qrImg.src && qrImg.src.startsWith('data:')) {
+              _qrDataUrl = qrImg.src;
+              console.info('[QR] Step 4 (fallback) — dataURL captured from img, length:', _qrDataUrl.length);
+            } else {
+              console.error('[QR] Step 4 (fallback) — No canvas or img data URL found. QR will be missing from PDF.');
+            }
+          }, 300);
+        }
+
+        // Step 5: confirm QR was appended
+        setTimeout(() => {
+          const rendered = qrContainer.querySelector('img') || qrContainer.querySelector('canvas');
+          if (rendered) {
+            console.info('[QR] Step 5 — QR element confirmed in DOM:', rendered.tagName,
+              'visible:', rendered.style.display !== 'none' && rendered.offsetParent !== null);
+          } else {
+            console.error('[QR] Step 5 — No QR element found in container after render. Container HTML:', qrContainer.innerHTML);
+          }
+        }, 200);
+      }
+    }
 
     // Track write page metrics audit
     AuditLog.add('RECEIPT_VIEWED', `Receipt: ${_txn.receipt_number}`);
