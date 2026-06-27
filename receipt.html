@@ -283,7 +283,7 @@
       <div class="ptb-left">
         <button class="mobile-menu-btn" id="mobileMenuBtn">☰</button>
         <div>
-          <div class="ptb-title">📋 Transaction Block Receipt</div>
+          <div class="ptb-title">📋 Transaction Receipt</div>
           <div class="ptb-sub" id="ptbSub">Receipt view & thermal printing alignment</div>
         </div>
       </div>
@@ -397,39 +397,39 @@
         <div class="rec-qr-row">
           <div class="rec-qr-img" id="rQrImage"></div>
           <div class="rec-qr-info">
-            <div class="rec-qr-title">🔐 Secure Blockchain Check</div>
-            <div style="font-size:10px; color:#4b5563; line-height:1.4;">Scan this code with compliance instruments to verify receipt origin directly against the tamper-proof sequence.</div>
+            <div class="rec-qr-title">🛡️ Receipt Verification</div>
+            <div style="font-size:10px; color:#4b5563; line-height:1.4;">Scan this QR Code to verify the authenticity and integrity of this transaction. The QR Code opens the official verification page and confirms whether the receipt is valid, altered, or not found.</div>
             <a href="#" class="rec-qr-link" id="rQrLinkText" target="_blank">verify.html?receipt=...</a>
           </div>
         </div>
 
         <div class="rec-footer">
-          <div class="rec-footer-text" id="rFooterText">This document is locked cryptographically under SHA-256 block chain. Any alteration breaks the system trace, flagging compliance. Thank you for your business.</div>
-          <div style="font-family:var(--font-mono); font-size:9.5px; color:#888;">POWERED BY DEMS BLOCKCHAIN CORE</div>
+          <div class="rec-footer-text" id="rFooterText">This receipt is digitally protected using SHA-256 integrity verification. Any unauthorized modification can be detected during verification. Thank you for your business.</div>
+          <div style="font-family:var(--font-mono); font-size:9.5px; color:#888;">POWERED BY DEMS SECURE TRANSACTION ENGINE</div>
         </div>
 
       </div><!-- /LEFT -->
 
       <!-- RIGHT: Side metadata blockchain drawer panel -->
       <div class="dark-panel">
-        <div class="pane-title">⛓ Block Coordinates</div>
-        <div class="lock-badge">✓ CRYPTO BLOCK LOCKED</div>
+        <div class="pane-title">🔐 Security Credentials</div>
+        <div class="lock-badge">✓ INTEGRITY VERIFIED</div>
         <div class="void-badge-dark" id="voidStatusBadgeDark" style="display:none;">🚫 VOID STATUS</div>
 
         <div class="meta-item">
-          <div class="meta-lbl">Chain Coordinates</div>
-          <div class="meta-val" id="bChainIndex">Block #—</div>
+          <div class="meta-lbl">Record Position</div>
+          <div class="meta-val" id="bChainIndex">Record #—</div>
         </div>
         <div class="meta-item" id="bVoidRefRow" style="display:none;">
           <div class="meta-lbl" id="bVoidRefLbl">Void Reference</div>
           <div class="meta-val" id="bVoidRef">—</div>
         </div>
         <div class="meta-item">
-          <div class="meta-lbl">Block Signature (SHA-256)</div>
+          <div class="meta-lbl">Security Signature (SHA-256)</div>
           <div class="meta-val mono" id="bHash" style="color:var(--green);">Calculating…</div>
         </div>
         <div class="meta-item">
-          <div class="meta-lbl">Parent Block Hash</div>
+          <div class="meta-lbl">Previous Record Signature</div>
           <div class="meta-val mono" id="bPrevHash">Calculating…</div>
         </div>
         <div class="meta-item">
@@ -440,8 +440,8 @@
         </div>
 
         <div style="margin-top:28px;">
-          <a class="btn-secondary" href="chain-integrity.html" style="width:100%; font-size:12px;">🔗 Verify Full Chain Integrity</a>
-          <a class="btn-ghost" href="new-transaction.html" style="width:100%; text-align:center; display:block; margin-top:10px;">＋ Add Another Block</a>
+          <a class="btn-secondary" href="chain-integrity.html" style="width:100%; font-size:12px;">🔐 Verify Record Integrity</a>
+          <a class="btn-ghost" href="new-transaction.html" style="width:100%; text-align:center; display:block; margin-top:10px;">＋ Add New Transaction</a>
         </div>
       </div><!-- /RIGHT -->
 
@@ -601,7 +601,7 @@ async function loadReceiptAndProfileDetails() {
     const _hashVal   = _txn.hash      ? _txn.hash.toUpperCase()      : '(hash not stored)';
     const _prevVal   = _txn.prev_hash ? _txn.prev_hash.toUpperCase() : '0'.repeat(64).toUpperCase();
 
-    document.getElementById('bChainIndex').textContent = `Block #${_chainIdx}`;
+    document.getElementById('bChainIndex').textContent = `Record #${_chainIdx}`;
     document.getElementById('bHash').textContent       = _hashVal;
     document.getElementById('bPrevHash').textContent   = _prevVal;
 
@@ -670,10 +670,16 @@ async function loadReceiptAndProfileDetails() {
       `;
     }
 
-    // 5. Dynamic QR Link calculation
-    // Parsed from window.location.origin dynamically to avoid localhost hardcoding.
-    const deployedBase = window.location.origin;
-    const verifyLink = `${deployedBase}/verify.html?receipt=${encodeURIComponent(_txn.receipt_number)}`;
+    // 5. Dynamic QR Link calculation.
+    // Uses both window.location.origin AND pathname so the URL is correct
+    // on subdirectory deployments (e.g. GitHub Pages /BITGET/, shared hosting
+    // subfolders, or any custom domain) — not just root-domain installs.
+    // Example: https://user.github.io/BITGET/receipt.html
+    //   → origin  = https://user.github.io
+    //   → basePath= /BITGET/
+    //   → result  = https://user.github.io/BITGET/verify.html?receipt=...
+    const basePath = window.location.pathname.replace(/\/[^/]*$/, '/');
+    const verifyLink = `${window.location.origin}${basePath}verify.html?receipt=${encodeURIComponent(_txn.receipt_number)}`;
     _verifyLink = verifyLink;
 
     // Set text link values
@@ -826,7 +832,7 @@ function downloadReceiptAsPdf() {
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(10);
   doc.setTextColor(20);
-  doc.text('Block Hash (SHA-256):', 15, y);
+  doc.text('Security Signature (SHA-256):', 15, y);
   y += 5;
   doc.setFont('courier', 'normal');
   doc.setFontSize(8.5);
@@ -843,7 +849,7 @@ function downloadReceiptAsPdf() {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8.5);
     doc.setTextColor(110);
-    doc.text('Scan to verify this receipt against the tamper-proof chain.', 50, y + 8, { maxWidth: 130 });
+    doc.text('Scan to verify the authenticity and integrity of this receipt.', 50, y + 8, { maxWidth: 130 });
     if (_verifyLink) {
       doc.setFont('courier', 'normal');
       doc.setFontSize(7.5);
@@ -856,7 +862,7 @@ function downloadReceiptAsPdf() {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   doc.setTextColor(150);
-  doc.text('POWERED BY DEMS BLOCKCHAIN CORE — Cryptographically Chained (' + (_txn.hash_version || 'DEMS-v2') + ')', 105, 285, { align: 'center' });
+  doc.text('POWERED BY DEMS SECURE TRANSACTION ENGINE — SHA-256 Integrity Verification (' + (_txn.hash_version || 'DEMS-v2') + ')', 105, 285, { align: 'center' });
 
     doc.save(`Receipt-${_txn.receipt_number}.pdf`);
     AuditLog.add('RECEIPT_PDF_DOWNLOADED', `Receipt: ${_txn.receipt_number}`);

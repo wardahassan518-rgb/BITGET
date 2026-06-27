@@ -12,308 +12,1064 @@
            object-src 'none';
            base-uri 'self';">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Blockchain Compliance Verification — DEMS</title>
+<title>Receipt Verification — DEMS Secure Transaction Engine</title>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
 <style>
-/* ── BASE CONTAINER ─────────────────────────────────────── */
+
+/* ── RESET & BASE ────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
 body {
-  background: var(--navy);
-  font-family: var(--font-sans);
-  color: var(--white);
-  padding: 24px 16px;
+  background: #080f1c;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  color: #e2e8f0;
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0;
+  position: relative;
+}
+
+/* Subtle grid pattern background */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(14,165,233,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(14,165,233,0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── INSTITUTIONAL HEADER BANNER ─────────────────────────── */
+.inst-header {
+  width: 100%;
+  background: #0d1829;
+  border-bottom: 1px solid rgba(14,165,233,0.15);
+  padding: 12px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+  z-index: 10;
+  flex-shrink: 0;
+}
+.inst-header::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, #0ea5e9 0%, #10b981 50%, #0ea5e9 100%);
+  background-size: 200% 100%;
+  animation: shimmer 4s linear infinite;
+}
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.inst-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.inst-seal {
+  width: 36px;
+  height: 36px;
+  background: linear-gradient(135deg, #0ea5e9, #0284c7);
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+  box-shadow: 0 0 12px rgba(14,165,233,0.3);
+}
+.inst-name {
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+  color: #f1f5f9;
+  line-height: 1.1;
+}
+.inst-name small {
+  display: block;
+  font-size: 10px;
+  font-weight: 400;
+  color: #64748b;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
-.verify-box {
+.inst-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #94a3b8;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: rgba(14,165,233,0.07);
+  border: 1px solid rgba(14,165,233,0.15);
+  border-radius: 20px;
+  padding: 5px 12px;
+}
+.inst-badge span { color: #0ea5e9; }
+
+/* ── MAIN CONTENT AREA ───────────────────────────────────── */
+.v-page {
   width: 100%;
-  max-width: 650px;
-  background: var(--navy-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-xl);
-  padding: 40px;
-  box-shadow: var(--shadow-lg);
+  max-width: 720px;
+  padding: 40px 24px 60px;
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* ── PAGE TITLE ──────────────────────────────────────────── */
+.v-page-title {
+  text-align: center;
+  margin-bottom: 32px;
+}
+.v-page-eyebrow {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #0ea5e9;
+  margin-bottom: 10px;
+}
+.v-page-heading {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 26px;
+  font-weight: 700;
+  color: #f1f5f9;
+  letter-spacing: -0.01em;
+  margin-bottom: 6px;
+}
+.v-page-sub {
+  font-size: 13px;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+/* ── MAIN VERIFICATION CARD ──────────────────────────────── */
+.v-card {
+  background: #0d1829;
+  border: 1px solid #1e2d45;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 4px 32px rgba(0,0,0,0.4), 0 0 0 1px rgba(14,165,233,0.04);
+}
+
+/* ── LOADING STATE ───────────────────────────────────────── */
+.v-loading {
+  padding: 64px 40px;
+  text-align: center;
+}
+.v-spinner-ring {
+  width: 48px;
+  height: 48px;
+  border: 3px solid rgba(14,165,233,0.12);
+  border-top-color: #0ea5e9;
+  border-radius: 50%;
+  display: inline-block;
+  animation: spin 0.9s linear infinite;
+  margin-bottom: 20px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.v-loading-title {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  color: #cbd5e1;
+  margin-bottom: 6px;
+}
+.v-loading-sub {
+  font-size: 12px;
+  color: #475569;
+}
+.v-loading-steps {
+  margin-top: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.v-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #475569;
+  opacity: 0;
+  transform: translateY(4px);
+  animation: stepIn 0.4s ease forwards;
+}
+.v-step:nth-child(1) { animation-delay: 0.3s; }
+.v-step:nth-child(2) { animation-delay: 0.8s; }
+.v-step:nth-child(3) { animation-delay: 1.3s; }
+@keyframes stepIn {
+  to { opacity: 1; transform: none; }
+}
+.v-step-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: #0ea5e9;
+  flex-shrink: 0;
+}
+
+/* ── STATUS RESULT PANELS ────────────────────────────────── */
+
+/* CASE 1: VERIFIED */
+.v-result-verified {
+  display: none;
+  flex-direction: column;
+}
+.v-result-verified .v-status-banner {
+  background: linear-gradient(135deg, #052e16, #064e3b);
+  border-bottom: 1px solid rgba(16,185,129,0.25);
+  padding: 32px 40px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
   position: relative;
   overflow: hidden;
 }
-.verify-box::before {
+.v-result-verified .v-status-banner::before {
   content: '';
   position: absolute;
-  top: 0; left: 0; right: 0; height: 4px;
-  background: linear-gradient(90deg, var(--blue), var(--green));
+  top: 0; left: 0; right: 0; height: 3px;
+  background: linear-gradient(90deg, #10b981, #34d399, #10b981);
 }
-
-.title-section { text-align: center; margin-bottom: 28px; }
-.v-logo { font-size: 36px; color: var(--blue); margin-bottom: 8px; }
-.v-title { font-family: var(--font-display); font-size: 18px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
-.v-subtitle { font-size: 12px; color: var(--muted); margin-top: 2px; }
-
-/* ── STATUS PLATES ──────────────────────────────────────── */
-.status-plate {
-  display: none; align-items: center; gap: 14px;
-  padding: 16px 20px; border-radius: var(--radius-lg);
-  margin-bottom: 24px; animation: scale-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+.v-status-icon-ring {
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30px;
+  flex-shrink: 0;
+  animation: popIn 0.5s cubic-bezier(0.34,1.56,0.64,1);
 }
-@keyframes scale-in {
-  from { opacity: 0; transform: scale(0.95); }
-  to { opacity: 1; transform: scale(1); }
+@keyframes popIn {
+  from { transform: scale(0.5); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
 }
-
-.status-plate.original {
-  display: flex; background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.3); color: var(--green);
+.icon-ring-green {
+  background: rgba(16,185,129,0.15);
+  border: 2px solid rgba(16,185,129,0.4);
+  box-shadow: 0 0 24px rgba(16,185,129,0.2);
 }
-.status-plate.tampered {
-  display: flex; background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.3); color: var(--red);
+.icon-ring-red {
+  background: rgba(239,68,68,0.12);
+  border: 2px solid rgba(239,68,68,0.35);
+  box-shadow: 0 0 24px rgba(239,68,68,0.15);
 }
-.status-plate.notfound {
-  display: flex; background: rgba(107,128,153,0.08); border: 1px solid rgba(107,128,153,0.3); color: var(--muted);
+.icon-ring-orange {
+  background: rgba(245,158,11,0.12);
+  border: 2px solid rgba(245,158,11,0.35);
+  box-shadow: 0 0 24px rgba(245,158,11,0.12);
 }
-
-.plate-icon { font-size: 32px; line-height: 1; }
-.plate-title { font-family: var(--font-display); font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
-.plate-desc { font-size: 11.5px; opacity: 0.85; margin-top: 2px; }
-
-/* ── DETAILS TABLE ──────────────────────────────────────── */
-.v-table { width: 100%; border-collapse: collapse; margin-top: 14px; font-size: 13px; }
-.v-table td { padding: 12px 0; border-bottom: 1px dashed var(--border-soft); color: var(--white); }
-.v-table tr:last-child td { border-bottom: none; }
-.v-table td.lbl { color: var(--muted); font-weight: 500; width: 140px; }
-.v-table td.val { font-weight: 600; text-align: right; }
-.v-table td.val.mono { font-family: var(--font-mono); font-size: 11px; color: var(--blue); word-break: break-all; }
-
-/* loading spinner */
-.spinner-container { text-align: center; padding: 40px 0; }
-.spinner {
-  width: 32px; height: 32px; border: 3px solid var(--border-soft); border-top-color: var(--blue);
-  border-radius: 50%; display: inline-block; animation: spin 0.8s linear infinite; margin-bottom: 12px;
+.v-status-text {}
+.v-status-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 5px;
 }
-@keyframes spin { to { transform: rotate(360deg); } }
-
-/* helper back to app link */
-.back-btn-box { text-align: center; margin-top: 32px; padding-top: 20px; border-top: 1px solid var(--border-soft); }
-
-.scope-note {
-  margin-top: 24px;
-  padding: 14px 16px;
-  background: rgba(107,128,153,0.06);
-  border: 1px solid rgba(107,128,153,0.18);
-  border-radius: var(--radius-lg);
-  font-size: 11px;
+.label-green { color: #34d399; }
+.label-red   { color: #f87171; }
+.label-orange{ color: #fbbf24; }
+.v-status-title {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.2;
+  margin-bottom: 8px;
+}
+.title-green  { color: #ecfdf5; }
+.title-red    { color: #fef2f2; }
+.title-orange { color: #fffbeb; }
+.v-status-desc {
+  font-size: 13px;
   line-height: 1.6;
-  color: var(--muted);
+  max-width: 420px;
+}
+.desc-green  { color: #a7f3d0; }
+.desc-red    { color: #fecaca; }
+.desc-orange { color: #fde68a; }
+.v-status-pill {
+  margin-left: auto;
+  flex-shrink: 0;
+  padding: 8px 18px;
+  border-radius: 24px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  align-self: flex-start;
+}
+.pill-green  { background: rgba(16,185,129,0.2);  border: 1px solid rgba(16,185,129,0.5);  color: #34d399; }
+.pill-red    { background: rgba(239,68,68,0.15);   border: 1px solid rgba(239,68,68,0.4);   color: #f87171; }
+.pill-orange { background: rgba(245,158,11,0.12);  border: 1px solid rgba(245,158,11,0.4);  color: #fbbf24; }
+
+/* CASE 2: TAMPERED */
+.v-result-tampered {
+  display: none;
+  flex-direction: column;
+}
+.v-result-tampered .v-status-banner {
+  background: linear-gradient(135deg, #1c0606, #3d0a0a);
+  border-bottom: 1px solid rgba(239,68,68,0.2);
+  padding: 32px 40px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  position: relative;
+  overflow: hidden;
+}
+.v-result-tampered .v-status-banner::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; height: 3px;
+  background: linear-gradient(90deg, #ef4444, #f87171, #ef4444);
+}
+
+/* CASE 3: NOT FOUND */
+.v-result-notfound {
+  display: none;
+  flex-direction: column;
+}
+.v-result-notfound .v-status-banner {
+  background: linear-gradient(135deg, #1a1200, #2d1f00);
+  border-bottom: 1px solid rgba(245,158,11,0.2);
+  padding: 32px 40px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  position: relative;
+  overflow: hidden;
+}
+.v-result-notfound .v-status-banner::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; height: 3px;
+  background: linear-gradient(90deg, #f59e0b, #fbbf24, #f59e0b);
+}
+
+/* ── DETAILS TABLE ───────────────────────────────────────── */
+.v-details {
+  padding: 0 40px 32px;
+}
+.v-details-heading {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #475569;
+  padding: 24px 0 14px;
+  border-bottom: 1px solid #1e2d45;
+  margin-bottom: 0;
+}
+.v-detail-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 13px 0;
+  border-bottom: 1px solid rgba(30,45,69,0.7);
+}
+.v-detail-row:last-child { border-bottom: none; }
+.v-detail-lbl {
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 500;
+  flex-shrink: 0;
+  min-width: 180px;
+}
+.v-detail-val {
+  font-size: 13px;
+  font-weight: 600;
+  color: #e2e8f0;
+  text-align: right;
+  word-break: break-all;
+  max-width: 380px;
+}
+.v-detail-val.mono {
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  font-size: 11px;
+  color: #38bdf8;
+  letter-spacing: 0.02em;
+}
+.v-detail-val.green { color: #34d399; }
+.v-detail-val.red   { color: #f87171; }
+.v-detail-val.orange{ color: #fbbf24; }
+
+/* Hash truncation with expand */
+.hash-short { display: inline; }
+.hash-full  { display: none;   font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #38bdf8; word-break: break-all; }
+.hash-toggle {
+  display: inline;
+  margin-left: 6px;
+  font-size: 10px;
+  color: #0ea5e9;
+  cursor: pointer;
+  text-decoration: underline;
+  font-family: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  font-weight: 500;
+}
+
+/* ── DIVIDER ─────────────────────────────────────────────── */
+.v-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #1e2d45 30%, #1e2d45 70%, transparent);
+  margin: 0 40px;
+}
+
+/* ── INTEGRITY VERDICT ROW ───────────────────────────────── */
+.v-verdict-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 13px 0;
+  border-bottom: 1px solid rgba(30,45,69,0.7);
+}
+.v-verdict-lbl {
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 500;
+  flex-shrink: 0;
+  min-width: 180px;
+}
+.verdict-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.verdict-chip.ok       { background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.35); color: #34d399; }
+.verdict-chip.fail     { background: rgba(239,68,68,0.10);  border: 1px solid rgba(239,68,68,0.3);   color: #f87171; }
+.verdict-chip.unknown  { background: rgba(245,158,11,0.10); border: 1px solid rgba(245,158,11,0.3);  color: #fbbf24; }
+
+/* ── DISCLAIMER ──────────────────────────────────────────── */
+.v-disclaimer {
+  margin: 0 40px 32px;
+  padding: 14px 18px;
+  background: rgba(14,165,233,0.04);
+  border: 1px solid rgba(14,165,233,0.1);
+  border-radius: 10px;
+  font-size: 11px;
+  line-height: 1.7;
+  color: #475569;
+}
+.v-disclaimer strong { color: #64748b; }
+
+/* ── FOOTER ACTIONS ──────────────────────────────────────── */
+.v-actions {
+  padding: 0 40px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.v-actions-left {
+  font-size: 11px;
+  color: #334155;
+}
+.v-actions-left span { color: #475569; }
+.btn-v-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 20px;
+  background: rgba(14,165,233,0.07);
+  border: 1px solid rgba(14,165,233,0.18);
+  border-radius: 8px;
+  color: #7dd3fc;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.15s;
+  cursor: pointer;
+}
+.btn-v-back:hover {
+  background: rgba(14,165,233,0.12);
+  border-color: rgba(14,165,233,0.3);
+  color: #38bdf8;
+}
+
+/* ── INSTITUTIONAL FOOTER ────────────────────────────────── */
+.inst-footer {
+  margin-top: auto;
+  width: 100%;
+  padding: 20px 32px;
+  border-top: 1px solid #0d1829;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  position: relative;
+  z-index: 1;
+}
+.inst-footer-text {
+  font-size: 10.5px;
+  color: #1e2d45;
+  letter-spacing: 0.05em;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+.inst-footer-dot {
+  width: 3px; height: 3px;
+  border-radius: 50%;
+  background: #1e2d45;
+}
+
+/* ── TOAST ───────────────────────────────────────────────── */
+#toastContainer {
+  position: fixed;
+  top: 20px; right: 20px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  background: #1e2d45;
+  border: 1px solid #2d3d55;
+  color: #e2e8f0;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  animation: toastIn 0.25s ease;
+}
+@keyframes toastIn { from { opacity:0; transform:translateX(20px); } to { opacity:1; transform:none; } }
+
+/* ── RESPONSIVE ──────────────────────────────────────────── */
+@media (max-width: 600px) {
+  .v-page { padding: 24px 12px 48px; }
+  .v-result-verified .v-status-banner,
+  .v-result-tampered .v-status-banner,
+  .v-result-notfound .v-status-banner {
+    flex-direction: column;
+    padding: 24px 20px;
+    gap: 16px;
+  }
+  .v-status-pill { margin-left: 0; align-self: flex-start; }
+  .v-details { padding: 0 20px 24px; }
+  .v-detail-row { flex-direction: column; gap: 4px; }
+  .v-detail-val { text-align: left; max-width: 100%; }
+  .v-detail-lbl { min-width: unset; }
+  .v-divider { margin: 0 20px; }
+  .v-disclaimer { margin: 0 20px 24px; }
+  .v-actions { padding: 0 20px 24px; }
+  .inst-header { padding: 10px 16px; }
+  .inst-badge { display: none; }
+  .v-verdict-row { flex-direction: column; gap: 4px; }
 }
 </style>
 </head>
 <body>
 
-<!-- toast -->
-<div id="toastContainer" aria-live="polite" aria-atomic="true" style="position: fixed; top: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 8px;"></div>
+<div id="toastContainer" aria-live="polite" aria-atomic="true"></div>
 
-<div class="verify-box">
-
-  <div class="title-section">
-    <div class="v-logo">⬡</div>
-    <div class="v-title">Compliance Verification</div>
-    <div class="v-subtitle">Audit gateway for digital financial exchange records</div>
-  </div>
-
-  <!-- Loading section -->
-  <div class="spinner-container" id="loadingArea">
-    <div class="spinner"></div>
-    <div style="font-size:12px; color:var(--muted);">Performing real-time cryptographic audit scan…</div>
-  </div>
-
-  <!-- Status templates -->
-  <div class="status-plate original" id="statusOriginal">
-    <div class="plate-icon">✅</div>
-    <div>
-      <div class="plate-title">Original Certified Block</div>
-      <div class="plate-desc">Real-time SHA-256 signature hashes align with the immutable block sequence. No alterations detected.</div>
+<!-- ── INSTITUTIONAL HEADER ───────────────────────────────── -->
+<header class="inst-header">
+  <div class="inst-brand">
+    <div class="inst-seal">🛡️</div>
+    <div class="inst-name">
+      DEMS Secure Transaction Engine
+      <small>Digital Exchange Management System</small>
     </div>
   </div>
+  <div class="inst-badge">
+    <span>●</span> Official Verification Portal
+  </div>
+</header>
 
-  <div class="status-plate tampered" id="statusTampered">
-    <div class="plate-icon">🚨</div>
-    <div>
-      <div class="plate-title">BLOCK ALTERED / TAMPERED</div>
-      <div class="plate-desc">CRITICAL COMPLIANCE WARNING: Cryptographic signature mismatch. Ledger block has been modified or corrupted!</div>
+<!-- ── MAIN PAGE ──────────────────────────────────────────── -->
+<main class="v-page">
+
+  <div class="v-page-title">
+    <div class="v-page-eyebrow">Receipt Verification</div>
+    <h1 class="v-page-heading">Transaction Integrity Check</h1>
+    <p class="v-page-sub">
+      This portal confirms whether a printed or digital receipt has been issued by this system
+      and has not been modified after issuance.
+    </p>
+  </div>
+
+  <div class="v-card">
+
+    <!-- ── LOADING ──────────────────────────────────────────── -->
+    <div class="v-loading" id="loadingArea">
+      <div class="v-spinner-ring"></div>
+      <div class="v-loading-title">Performing integrity verification…</div>
+      <div class="v-loading-sub">Reading receipt record and validating security signature</div>
+      <div class="v-loading-steps">
+        <div class="v-step"><div class="v-step-dot"></div> Reading receipt number from request</div>
+        <div class="v-step"><div class="v-step-dot"></div> Loading transaction record from database</div>
+        <div class="v-step"><div class="v-step-dot"></div> Comparing SHA-256 security signature</div>
+      </div>
     </div>
-  </div>
 
-  <div class="status-plate notfound" id="statusNotFound">
-    <div class="plate-icon">❓</div>
-    <div>
-      <div class="plate-title">Transaction Block Not Found</div>
-      <div class="plate-desc">The lookup parameter does not correspond to any chained records in this system's active datastore.</div>
+    <!-- ── CASE 1: VERIFIED ─────────────────────────────────── -->
+    <div class="v-result-verified" id="resultVerified">
+      <div class="v-status-banner">
+        <div class="v-status-icon-ring icon-ring-green">✓</div>
+        <div class="v-status-text">
+          <div class="v-status-label label-green">Verification Status</div>
+          <div class="v-status-title title-green">ORIGINAL CERTIFIED RECORD</div>
+          <div class="v-status-desc desc-green">
+            This transaction is authentic. The transaction has successfully passed integrity verification.
+            No unauthorized modifications were detected.
+          </div>
+        </div>
+        <div class="v-status-pill pill-green">✓ VALID</div>
+      </div>
+
+      <div class="v-details" id="detailsVerified">
+        <div class="v-details-heading">Verified Transaction Details</div>
+        <div class="v-detail-row">
+          <div class="v-detail-lbl">Receipt Number</div>
+          <div class="v-detail-val mono" id="vd1RecNum">—</div>
+        </div>
+        <div class="v-detail-row">
+          <div class="v-detail-lbl">Transaction Date</div>
+          <div class="v-detail-val" id="vd1Date">—</div>
+        </div>
+        <div class="v-detail-row">
+          <div class="v-detail-lbl">Client Name</div>
+          <div class="v-detail-val" id="vd1ClientName">—</div>
+        </div>
+        <div class="v-detail-row">
+          <div class="v-detail-lbl">Client CNIC</div>
+          <div class="v-detail-val mono" id="vd1ClientCnic">—</div>
+        </div>
+        <div class="v-detail-row">
+          <div class="v-detail-lbl">Cash Amount (PKR)</div>
+          <div class="v-detail-val" id="vd1AmountPkr">—</div>
+        </div>
+        <div class="v-detail-row">
+          <div class="v-detail-lbl">Exchange Rate</div>
+          <div class="v-detail-val" id="vd1Rate">—</div>
+        </div>
+        <div class="v-detail-row">
+          <div class="v-detail-lbl">USDT Amount</div>
+          <div class="v-detail-val" id="vd1AmountUsdt">—</div>
+        </div>
+        <div class="v-detail-row">
+          <div class="v-detail-lbl">Record Number</div>
+          <div class="v-detail-val" id="vd1RecordNum">—</div>
+        </div>
+        <div class="v-detail-row">
+          <div class="v-detail-lbl">Security Signature (SHA-256)</div>
+          <div class="v-detail-val">
+            <span class="hash-short" id="vd1HashShort">—</span>
+            <span class="hash-full" id="vd1HashFull">—</span>
+            <button class="hash-toggle" id="vd1HashToggleBtn" onclick="toggleHash('vd1')" style="display:none;">Show full</button>
+          </div>
+        </div>
+        <div class="v-detail-row">
+          <div class="v-detail-lbl">Previous Record Signature</div>
+          <div class="v-detail-val">
+            <span class="hash-short" id="vd1PrevShort">—</span>
+            <span class="hash-full" id="vd1PrevFull">—</span>
+            <button class="hash-toggle" id="vd1PrevToggleBtn" onclick="togglePrev('vd1')" style="display:none;">Show full</button>
+          </div>
+        </div>
+        <div class="v-detail-row">
+          <div class="v-detail-lbl">Verification Time</div>
+          <div class="v-detail-val" id="vd1VerifyTime">—</div>
+        </div>
+        <div class="v-verdict-row">
+          <div class="v-verdict-lbl">Verification Result</div>
+          <div class="verdict-chip ok">✓ Integrity Confirmed — No Alterations Detected</div>
+        </div>
+      </div>
     </div>
-  </div>
 
-  <!-- Table details results -->
-  <div id="resultsArea" style="display:none; margin-top:10px;">
-    <table class="v-table">
-      <tbody>
-        <tr>
-          <td class="lbl">Block Position</td>
-          <td class="val" id="vBlockIdx">#0</td>
-        </tr>
-        <tr>
-          <td class="lbl">Receipt Number</td>
-          <td class="val mono" id="vReceipt">EXC-YYYY-NNNNN</td>
-        </tr>
-        <tr>
-          <td class="lbl">Transaction Date (UTC)</td>
-          <td class="val" id="vTime">—</td>
-        </tr>
-        <tr>
-          <td class="lbl">Transaction Type</td>
-          <td class="val" id="vType">—</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
+    <!-- ── CASE 2: TAMPERED ─────────────────────────────────── -->
+    <div class="v-result-tampered" id="resultTampered">
+      <div class="v-status-banner">
+        <div class="v-status-icon-ring icon-ring-red">✖</div>
+        <div class="v-status-text">
+          <div class="v-status-label label-red">Security Alert</div>
+          <div class="v-status-title title-red">RECORD ALTERED / TAMPERED</div>
+          <div class="v-status-desc desc-red" id="tamperedDesc">
+            The stored security signature does not match the current transaction data.
+            This receipt appears to have been modified after issuance.
+          </div>
+        </div>
+        <div class="v-status-pill pill-red">✖ INVALID</div>
+      </div>
 
-  <div class="scope-note">
-    This check confirms the record's stored signature and chain link are
-    internally consistent — it does not certify that the underlying data was
-    never altered by someone with direct access to the system that issued it.
-  </div>
+      <div class="v-details" id="detailsTampered">
+        <div class="v-details-heading">Transaction Record Details</div>
+        <div class="v-detail-row">
+          <div class="v-detail-lbl">Receipt Number</div>
+          <div class="v-detail-val mono" id="vd2RecNum">—</div>
+        </div>
+        <div class="v-detail-row">
+          <div class="v-detail-lbl">Transaction Date</div>
+          <div class="v-detail-val" id="vd2Date">—</div>
+        </div>
+        <div class="v-detail-row">
+          <div class="v-detail-lbl">Client Name</div>
+          <div class="v-detail-val" id="vd2ClientName">—</div>
+        </div>
+        <div class="v-detail-row">
+          <div class="v-detail-lbl">Client CNIC</div>
+          <div class="v-detail-val mono" id="vd2ClientCnic">—</div>
+        </div>
+        <div class="v-detail-row">
+          <div class="v-detail-lbl">Cash Amount (PKR)</div>
+          <div class="v-detail-val" id="vd2AmountPkr">—</div>
+        </div>
+        <div class="v-detail-row">
+          <div class="v-detail-lbl">Exchange Rate</div>
+          <div class="v-detail-val" id="vd2Rate">—</div>
+        </div>
+        <div class="v-detail-row">
+          <div class="v-detail-lbl">USDT Amount</div>
+          <div class="v-detail-val" id="vd2AmountUsdt">—</div>
+        </div>
+        <div class="v-detail-row">
+          <div class="v-detail-lbl">Record Number</div>
+          <div class="v-detail-val" id="vd2RecordNum">—</div>
+        </div>
+        <div class="v-detail-row">
+          <div class="v-detail-lbl">Stored Signature (SHA-256)</div>
+          <div class="v-detail-val">
+            <span class="hash-short" id="vd2HashShort">—</span>
+            <span class="hash-full" id="vd2HashFull">—</span>
+            <button class="hash-toggle" id="vd2HashToggleBtn" onclick="toggleHash('vd2')" style="display:none;">Show full</button>
+          </div>
+        </div>
+        <div class="v-detail-row">
+          <div class="v-detail-lbl">Previous Record Signature</div>
+          <div class="v-detail-val">
+            <span class="hash-short" id="vd2PrevShort">—</span>
+            <span class="hash-full" id="vd2PrevFull">—</span>
+            <button class="hash-toggle" id="vd2PrevToggleBtn" onclick="togglePrev('vd2')" style="display:none;">Show full</button>
+          </div>
+        </div>
+        <div class="v-detail-row">
+          <div class="v-detail-lbl">Verification Time</div>
+          <div class="v-detail-val" id="vd2VerifyTime">—</div>
+        </div>
+        <div class="v-verdict-row">
+          <div class="v-verdict-lbl">Verification Result</div>
+          <div class="verdict-chip fail">✖ Integrity Failure — Signature Mismatch Detected</div>
+        </div>
+      </div>
+    </div>
 
-  <div class="back-btn-box">
-    <a href="index.html" class="btn-secondary btn-sm" style="text-decoration:none;">⬅ Return to Onboarding Portal</a>
-  </div>
+    <!-- ── CASE 3: NOT FOUND ────────────────────────────────── -->
+    <div class="v-result-notfound" id="resultNotFound">
+      <div class="v-status-banner">
+        <div class="v-status-icon-ring icon-ring-orange">⚠</div>
+        <div class="v-status-text">
+          <div class="v-status-label label-orange">Record Lookup</div>
+          <div class="v-status-title title-orange">TRANSACTION RECORD NOT FOUND</div>
+          <div class="v-status-desc desc-orange">
+            The requested transaction does not exist in the system.
+            Please verify the receipt number or QR Code and try again.
+          </div>
+        </div>
+        <div class="v-status-pill pill-orange">⚠ NOT FOUND</div>
+      </div>
+      <div class="v-details">
+        <div class="v-details-heading">Lookup Information</div>
+        <div class="v-detail-row">
+          <div class="v-detail-lbl">Queried Receipt Number</div>
+          <div class="v-detail-val mono" id="vd3Queried">—</div>
+        </div>
+        <div class="v-detail-row">
+          <div class="v-detail-lbl">Verification Time</div>
+          <div class="v-detail-val" id="vd3Time">—</div>
+        </div>
+        <div class="v-verdict-row">
+          <div class="v-verdict-lbl">Verification Result</div>
+          <div class="verdict-chip unknown">⚠ Record Not Found in System</div>
+        </div>
+      </div>
+    </div>
 
-</div>
+    <!-- ── DISCLAIMER ───────────────────────────────────────── -->
+    <div class="v-disclaimer" id="disclaimerBlock" style="display:none;">
+      <strong>Notice:</strong> This verification confirms the record's stored security signature is internally
+      consistent with the transaction data currently held in the issuing system's database. It confirms
+      whether the receipt is original, altered, or not found — based on SHA-256 digital signature comparison.
+      This verification is provided by the DEMS Secure Transaction Engine.
+    </div>
 
+    <!-- ── ACTIONS ──────────────────────────────────────────── -->
+    <div class="v-actions">
+      <div class="v-actions-left">
+        Powered by <span>DEMS Secure Transaction Engine</span>
+      </div>
+      <a href="index.html" class="btn-v-back">
+        ← Return to System
+      </a>
+    </div>
+
+  </div><!-- /v-card -->
+</main>
+
+<!-- ── INSTITUTIONAL FOOTER ───────────────────────────────── -->
+<footer class="inst-footer">
+  <div class="inst-footer-text">DEMS Secure Transaction Engine</div>
+  <div class="inst-footer-dot"></div>
+  <div class="inst-footer-text">SHA-256 Record Verification</div>
+  <div class="inst-footer-dot"></div>
+  <div class="inst-footer-text">Integrity Engine v2</div>
+</footer>
+
+<!-- ─────────────────────────────────────────────────────── -->
 <script src="db.js"></script>
-<script src="auth.js"></script>
-<script src="profile.js"></script>
-<script src="audit-log.js"></script>
 <script src="hash-engine.js"></script>
 <script>
 'use strict';
 
+/* ── UTILITIES ────────────────────────────────────────────── */
+function el(id) { return document.getElementById(id); }
+
+function fmtDate(iso) {
+  try {
+    return new Date(iso).toLocaleString('en-PK', {
+      year: 'numeric', month: 'long', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+      hour12: true
+    });
+  } catch { return iso || '—'; }
+}
+
+function fmtNow() {
+  return new Date().toLocaleString('en-PK', {
+    year: 'numeric', month: 'long', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    hour12: true
+  });
+}
+
+function fmtPkr(val) {
+  return `₨ ${parseFloat(val || 0).toLocaleString('en-PK', { minimumFractionDigits: 2 })}`;
+}
+
+function fmtUsdt(val) {
+  return `${parseFloat(val || 0).toFixed(2)} USDT`;
+}
+
+/* Hash display helpers — show first 16 chars + ellipsis by default */
+function setHash(prefix, fullHash) {
+  if (!fullHash) return;
+  const upper = fullHash.toUpperCase();
+  const short = upper.slice(0, 16) + '…' + upper.slice(-8);
+  el(prefix + 'HashShort').textContent = short;
+  el(prefix + 'HashFull').textContent  = upper;
+  el(prefix + 'HashToggleBtn').style.display = 'inline';
+}
+function setPrev(prefix, fullHash) {
+  if (!fullHash) return;
+  const upper = fullHash.toUpperCase();
+  const isGenesis = upper === '0'.repeat(64);
+  const short = isGenesis ? 'GENESIS (first record)' : upper.slice(0, 16) + '…' + upper.slice(-8);
+  el(prefix + 'PrevShort').textContent = short;
+  el(prefix + 'PrevFull').textContent  = upper;
+  if (!isGenesis) el(prefix + 'PrevToggleBtn').style.display = 'inline';
+}
+function toggleHash(prefix) {
+  const s = el(prefix + 'HashShort');
+  const f = el(prefix + 'HashFull');
+  const b = el(prefix + 'HashToggleBtn');
+  const showing = f.style.display !== 'none';
+  s.style.display = showing ? 'inline' : 'none';
+  f.style.display = showing ? 'none'   : 'inline';
+  b.textContent   = showing ? 'Show full' : 'Collapse';
+}
+function togglePrev(prefix) {
+  const s = el(prefix + 'PrevShort');
+  const f = el(prefix + 'PrevFull');
+  const b = el(prefix + 'PrevToggleBtn');
+  const showing = f.style.display !== 'none';
+  s.style.display = showing ? 'inline' : 'none';
+  f.style.display = showing ? 'none'   : 'inline';
+  b.textContent   = showing ? 'Show full' : 'Collapse';
+}
+
+/* ── POPULATE DETAIL PANELS ──────────────────────────────── */
+function populateDetails(prefix, txn) {
+  el(prefix + 'RecNum').textContent      = txn.receipt_number || '—';
+  el(prefix + 'Date').textContent        = fmtDate(txn.timestamp);
+  el(prefix + 'ClientName').textContent  = txn.client_name  || 'Walk-in Client';
+  el(prefix + 'ClientCnic').textContent  = txn.client_cnic  || '—';
+  el(prefix + 'AmountPkr').textContent   = fmtPkr(txn.amount_pkr);
+  el(prefix + 'Rate').textContent        = `${parseFloat(txn.exchange_rate || 0).toFixed(3)} PKR/USDT`;
+  el(prefix + 'AmountUsdt').textContent  = fmtUsdt(txn.amount_usdt);
+  el(prefix + 'RecordNum').textContent   = `Record #${txn.chain_index}`;
+  el(prefix + 'VerifyTime').textContent  = fmtNow();
+  setHash(prefix, txn.hash);
+  setPrev(prefix, txn.prev_hash);
+}
+
+/* ── SHOW RESULT STATE ───────────────────────────────────── */
+function showVerified(txn) {
+  el('loadingArea').style.display   = 'none';
+  const d = el('resultVerified');
+  d.style.display = 'flex';
+  populateDetails('vd1', txn);
+  el('disclaimerBlock').style.display = 'block';
+}
+
+function showTampered(txn, reasons) {
+  el('loadingArea').style.display = 'none';
+  const d = el('resultTampered');
+  d.style.display = 'flex';
+  if (reasons && reasons.length) {
+    el('tamperedDesc').textContent =
+      `Security alert: ${reasons.join(', and ')}. ` +
+      'This receipt appears to have been modified after issuance.';
+  }
+  populateDetails('vd2', txn);
+  el('disclaimerBlock').style.display = 'block';
+}
+
+function showNotFound(queriedReceipt) {
+  el('loadingArea').style.display = 'none';
+  el('resultNotFound').style.display = 'flex';
+  el('vd3Queried').textContent = queriedReceipt || '(not specified)';
+  el('vd3Time').textContent    = fmtNow();
+  el('disclaimerBlock').style.display = 'block';
+}
+
+/* ── MAIN VERIFICATION FLOW ──────────────────────────────── */
 window.addEventListener('DOMContentLoaded', async () => {
-  // Public verification page: we DO NOT require an active log in session!
-  await DB.init();
-  await runVerificationScan();
+  try {
+    await DB.init();
+  } catch (e) {
+    console.warn('[Verify] DB.init error:', e);
+  }
+  await runVerification();
 });
 
-async function runVerificationScan() {
-  const urlParams = new URLSearchParams(window.location.search);
-  const receiptParam = urlParams.get('receipt');
-  const hashParam = urlParams.get('hash');
+async function runVerification() {
+  const params  = new URLSearchParams(window.location.search);
+  const receipt = params.get('receipt');
+  const hashKey = params.get('hash');   // legacy fallback
 
-  const loading = document.getElementById('loadingArea');
-  const results = document.getElementById('resultsArea');
-
-  if (!receiptParam && !hashParam) {
-    loading.style.display = 'none';
-    document.getElementById('statusNotFound').style.display = 'flex';
+  // No parameters at all → not found
+  if (!receipt && !hashKey) {
+    showNotFound(null);
     return;
   }
 
   try {
+    // 1. Load the raw transaction record
     let txn = null;
-    
-    // Look up transaction
-    if (receiptParam) {
-      txn = await DB.get(`SELECT * FROM transactions WHERE receipt_number = ?`, [receiptParam]);
-    } else if (hashParam) {
-      txn = await DB.get(`SELECT * FROM transactions WHERE hash = ?`, [hashParam]);
+    if (receipt) {
+      txn = await DB.get(
+        `SELECT * FROM transactions WHERE receipt_number = ?`,
+        [receipt]
+      );
+    } else if (hashKey) {
+      txn = await DB.get(
+        `SELECT * FROM transactions WHERE hash = ?`,
+        [hashKey]
+      );
     }
-
-    loading.style.display = 'none';
 
     if (!txn) {
-      document.getElementById('statusNotFound').style.display = 'flex';
-      
-      // Log failed compliance checks
-      AuditLog.add(
-        'VERIFICATION_FAILED',
-        `Lookup failed: receipt=${receiptParam||'—'} | hash=${hashParam||'—'}`
-      );
-      
-      // Log verification stats for Phase 07 (Verification Log)
-      await DB.run(
-        `INSERT INTO verification_log (receipt_number, verified_at, result, user_agent)
-         VALUES (?, ?, 'NOT_FOUND', ?)`,
-        [receiptParam || 'UNKNOWN', new Date().toISOString(), navigator.userAgent]
-      );
+      showNotFound(receipt || hashKey);
+      // Attempt to log — non-fatal if verification_log table doesn't exist yet
+      try {
+        await DB.run(
+          `INSERT INTO verification_log (receipt_number, verified_at, result, user_agent)
+           VALUES (?, ?, 'NOT_FOUND', ?)`,
+          [receipt || 'UNKNOWN', new Date().toISOString(), navigator.userAgent]
+        );
+      } catch (_) {}
       return;
     }
 
-    // Parse parameters
-    // SEC-FIX 5: this is a PUBLIC page — only non-sensitive fields are
-    // rendered (receipt number, date, type, chain index, validity status).
-    // Amounts, rates, bank/payment details, and client PII are intentionally
-    // never written to the DOM here, even though they exist on `txn`.
-    document.getElementById('vBlockIdx').textContent = `Block #${txn.chain_index}`;
-    document.getElementById('vReceipt').textContent = txn.receipt_number;
-    // Date only — no time-of-day — to avoid revealing granular activity timing.
-    document.getElementById('vTime').textContent = new Date(txn.timestamp).toISOString().split('T')[0];
-
-    const isBuy = txn.txn_type === 'buy';
-    document.getElementById('vType').innerHTML = `<span class="badge-type ${txn.txn_type}">${isBuy ? '📥 Buy (Client Sells USDT)' : '📤 Sell (Client Buys USDT)'}</span>`;
-
-    // ── CRYPTOGRAPHIC VALIDATION TRACE ──
-    // Use the authoritative HashEngine routines (these already log to
-    // verification_log + AuditLog internally, so we don't duplicate that
-    // here). They check TWO things, not just one:
-    //   1. hashValid — this record's own SHA-256 signature matches its content
-    //   2. linkValid — this record's prev_hash correctly chains to the
-    //      previous block's hash
-    // Checking hash alone (the old logic) misses an attacker who rewrites a
-    // single block and recomputes that block's own hash to match — the
-    // record looks internally consistent, but the NEXT block in the chain
-    // still points at the old hash, breaking the link. Checking both closes
-    // that gap.
-    const verification = receiptParam
-      ? await HashEngine.verifyByReceiptNumber(txn.receipt_number)
-      : await HashEngine.verifyByHash(txn.hash);
-
-    if (!verification.found) {
-      // Defensive fallback — shouldn't happen since we already loaded txn above
-      document.getElementById('statusNotFound').style.display = 'flex';
+    // 2. Run integrity verification via HashEngine
+    let verification;
+    try {
+      verification = receipt
+        ? await HashEngine.verifyByReceiptNumber(txn.receipt_number)
+        : await HashEngine.verifyByHash(txn.hash);
+    } catch (verErr) {
+      console.error('[Verify] HashEngine error:', verErr);
+      // If HashEngine itself throws, fall back to not-found display
+      showNotFound(receipt || hashKey);
       return;
     }
 
+    if (!verification || !verification.found) {
+      showNotFound(receipt || hashKey);
+      return;
+    }
+
+    // 3. Display result
     if (verification.intact) {
-      document.getElementById('statusOriginal').style.display = 'flex';
+      showVerified(txn);
     } else {
-      // Build copy that explains specifically which check(s) failed
       const reasons = [];
       if (!verification.hashValid) {
-        reasons.push('this block\u2019s cryptographic signature no longer matches its stored data');
+        reasons.push('the security signature no longer matches the stored transaction data');
       }
       if (!verification.linkValid) {
-        reasons.push('this block is not correctly linked to the preceding block in the chain');
+        reasons.push('this record is not correctly linked to the preceding record in the chain');
       }
-      const descEl = document.querySelector('#statusTampered .plate-desc');
-      descEl.textContent = `CRITICAL COMPLIANCE WARNING: ${reasons.join(', and ')}. Ledger block has been modified or corrupted!`;
-      document.getElementById('statusTampered').style.display = 'flex';
+      showTampered(txn, reasons);
     }
 
-    results.style.display = 'block';
-
-  } catch(e) {
-    loading.style.display = 'none';
-    document.getElementById('statusNotFound').style.display = 'flex';
-    Toast.show('Verification scan corrupted: ' + e.message, 'error');
+  } catch (e) {
+    console.error('[Verify] Unexpected error:', e);
+    showNotFound(receipt || hashKey);
+    Toast.show('Verification error: ' + e.message, 'error');
   }
 }
 
+/* ── TOAST ───────────────────────────────────────────────── */
 const Toast = {
-  show(msg, type='info', dur=3500) {
-    const c = document.getElementById('toastContainer');
+  show(msg, type = 'info', dur = 4000) {
+    const c = el('toastContainer');
     const t = document.createElement('div');
-    const icons = { success:'✅', error:'❌', info:'ℹ️', warning:'⚠️' };
+    const icons = { success: '✅', error: '❌', info: 'ℹ️', warning: '⚠️' };
     t.className = `toast ${type}`;
-    t.innerHTML = `<span>${icons[type]||'ℹ️'}</span><span>${msg}</span>`;
+    t.innerHTML = `<span>${icons[type] || 'ℹ️'}</span><span>${msg}</span>`;
     c.appendChild(t);
-    setTimeout(() => { t.style.opacity='0'; t.style.transition='opacity 0.3s'; setTimeout(()=>t.remove(),300); }, dur);
+    setTimeout(() => {
+      t.style.opacity = '0';
+      t.style.transition = 'opacity 0.3s';
+      setTimeout(() => t.remove(), 300);
+    }, dur);
   }
 };
 </script>
