@@ -4,1074 +4,563 @@
 <meta charset="UTF-8">
 <meta http-equiv="Content-Security-Policy"
   content="default-src 'self';
-           script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' https://cdnjs.cloudflare.com https://fonts.googleapis.com;
+           script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval';
            style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com;
            font-src https://fonts.gstatic.com;
-           connect-src 'self' https://worldtimeapi.org;
+           connect-src 'self';
            img-src 'self' data: blob:;
            object-src 'none';
            base-uri 'self';">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Receipt Verification — DEMS Secure Transaction Engine</title>
+<title>Receipt Verification — DEMS</title>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
 <style>
+/* ── VERIFY PAGE LAYOUT ────────────────────────────────────── */
+/* Full-page centred layout — no sidebar, no topbar.
+   This page is opened from a QR scan and must be readable
+   without being logged in to the DEMS app. */
 
-/* ── RESET & BASE ────────────────────────────────────────── */
+:root {
+  /* Fallback tokens in case styles.css hasn't loaded yet */
+  --navy-1:       #080f1c;
+  --navy-2:       #0d1829;
+  --navy-3:       #111f35;
+  --border:       rgba(255,255,255,0.08);
+  --border-soft:  rgba(255,255,255,0.05);
+  --white:        #f0f6ff;
+  --muted:        #6b8099;
+  --blue:         #0ea5e9;
+  --blue-glow:    rgba(14,165,233,0.08);
+  --green:        #10b981;
+  --gold:         #f59e0b;
+  --red:          #ef4444;
+  --font-display: 'Space Grotesk', system-ui, sans-serif;
+  --font-body:    'Inter', system-ui, sans-serif;
+  --font-mono:    'JetBrains Mono', monospace;
+  --radius-xs:    4px;
+  --radius-sm:    8px;
+  --radius-md:    12px;
+  --radius-lg:    16px;
+  --radius-pill:  999px;
+}
+
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-body {
-  background: #080f1c;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  color: #e2e8f0;
+html, body {
+  height: 100%;
+  background: var(--navy-1, #080f1c);
+  color: var(--white, #f0f6ff);
+  font-family: var(--font-body, 'Inter', sans-serif);
+}
+
+.verify-shell {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 0;
-  position: relative;
-}
-
-/* Subtle grid pattern background */
-body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background-image:
-    linear-gradient(rgba(14,165,233,0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(14,165,233,0.03) 1px, transparent 1px);
-  background-size: 40px 40px;
-  pointer-events: none;
-  z-index: 0;
-}
-
-/* ── INSTITUTIONAL HEADER BANNER ─────────────────────────── */
-.inst-header {
-  width: 100%;
-  background: #0d1829;
-  border-bottom: 1px solid rgba(14,165,233,0.15);
-  padding: 12px 32px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  position: relative;
-  z-index: 10;
-  flex-shrink: 0;
-}
-.inst-header::after {
-  content: '';
-  position: absolute;
-  bottom: 0; left: 0; right: 0; height: 2px;
-  background: linear-gradient(90deg, #0ea5e9 0%, #10b981 50%, #0ea5e9 100%);
-  background-size: 200% 100%;
-  animation: shimmer 4s linear infinite;
-}
-@keyframes shimmer {
-  0%   { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
-}
-
-.inst-brand {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.inst-seal {
-  width: 36px;
-  height: 36px;
-  background: linear-gradient(135deg, #0ea5e9, #0284c7);
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
   justify-content: center;
-  font-size: 18px;
-  flex-shrink: 0;
-  box-shadow: 0 0 12px rgba(14,165,233,0.3);
-}
-.inst-name {
-  font-family: 'Space Grotesk', sans-serif;
-  font-weight: 700;
-  font-size: 15px;
-  color: #f1f5f9;
-  line-height: 1.1;
-}
-.inst-name small {
-  display: block;
-  font-size: 10px;
-  font-weight: 400;
-  color: #64748b;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.inst-badge {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 10px;
-  font-weight: 600;
-  color: #94a3b8;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  background: rgba(14,165,233,0.07);
-  border: 1px solid rgba(14,165,233,0.15);
-  border-radius: 20px;
-  padding: 5px 12px;
-}
-.inst-badge span { color: #0ea5e9; }
-
-/* ── MAIN CONTENT AREA ───────────────────────────────────── */
-.v-page {
-  width: 100%;
-  max-width: 720px;
-  padding: 40px 24px 60px;
-  position: relative;
-  z-index: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-}
-
-/* ── PAGE TITLE ──────────────────────────────────────────── */
-.v-page-title {
-  text-align: center;
-  margin-bottom: 32px;
-}
-.v-page-eyebrow {
-  font-size: 10.5px;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: #0ea5e9;
-  margin-bottom: 10px;
-}
-.v-page-heading {
-  font-family: 'Space Grotesk', sans-serif;
-  font-size: 26px;
-  font-weight: 700;
-  color: #f1f5f9;
-  letter-spacing: -0.01em;
-  margin-bottom: 6px;
-}
-.v-page-sub {
-  font-size: 13px;
-  color: #64748b;
-  line-height: 1.5;
-}
-
-/* ── MAIN VERIFICATION CARD ──────────────────────────────── */
-.v-card {
-  background: #0d1829;
-  border: 1px solid #1e2d45;
-  border-radius: 16px;
-  overflow: hidden;
-  box-shadow: 0 4px 32px rgba(0,0,0,0.4), 0 0 0 1px rgba(14,165,233,0.04);
-}
-
-/* ── LOADING STATE ───────────────────────────────────────── */
-.v-loading {
-  padding: 64px 40px;
-  text-align: center;
-}
-.v-spinner-ring {
-  width: 48px;
-  height: 48px;
-  border: 3px solid rgba(14,165,233,0.12);
-  border-top-color: #0ea5e9;
-  border-radius: 50%;
-  display: inline-block;
-  animation: spin 0.9s linear infinite;
-  margin-bottom: 20px;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
-.v-loading-title {
-  font-family: 'Space Grotesk', sans-serif;
-  font-size: 15px;
-  font-weight: 600;
-  color: #cbd5e1;
-  margin-bottom: 6px;
-}
-.v-loading-sub {
-  font-size: 12px;
-  color: #475569;
-}
-.v-loading-steps {
-  margin-top: 24px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-}
-.v-step {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  color: #475569;
-  opacity: 0;
-  transform: translateY(4px);
-  animation: stepIn 0.4s ease forwards;
-}
-.v-step:nth-child(1) { animation-delay: 0.3s; }
-.v-step:nth-child(2) { animation-delay: 0.8s; }
-.v-step:nth-child(3) { animation-delay: 1.3s; }
-@keyframes stepIn {
-  to { opacity: 1; transform: none; }
-}
-.v-step-dot {
-  width: 6px; height: 6px;
-  border-radius: 50%;
-  background: #0ea5e9;
-  flex-shrink: 0;
-}
-
-/* ── STATUS RESULT PANELS ────────────────────────────────── */
-
-/* CASE 1: VERIFIED */
-.v-result-verified {
-  display: none;
-  flex-direction: column;
-}
-.v-result-verified .v-status-banner {
-  background: linear-gradient(135deg, #052e16, #064e3b);
-  border-bottom: 1px solid rgba(16,185,129,0.25);
-  padding: 32px 40px;
-  display: flex;
-  align-items: center;
+  padding: 32px 16px;
   gap: 24px;
-  position: relative;
-  overflow: hidden;
 }
-.v-result-verified .v-status-banner::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0; height: 3px;
-  background: linear-gradient(90deg, #10b981, #34d399, #10b981);
+
+/* ── HEADER ──────────────────────────────────────────────── */
+.verify-header {
+  text-align: center;
 }
-.v-status-icon-ring {
-  width: 68px;
-  height: 68px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 30px;
-  flex-shrink: 0;
-  animation: popIn 0.5s cubic-bezier(0.34,1.56,0.64,1);
-}
-@keyframes popIn {
-  from { transform: scale(0.5); opacity: 0; }
-  to   { transform: scale(1);   opacity: 1; }
-}
-.icon-ring-green {
-  background: rgba(16,185,129,0.15);
-  border: 2px solid rgba(16,185,129,0.4);
-  box-shadow: 0 0 24px rgba(16,185,129,0.2);
-}
-.icon-ring-red {
-  background: rgba(239,68,68,0.12);
-  border: 2px solid rgba(239,68,68,0.35);
-  box-shadow: 0 0 24px rgba(239,68,68,0.15);
-}
-.icon-ring-orange {
-  background: rgba(245,158,11,0.12);
-  border: 2px solid rgba(245,158,11,0.35);
-  box-shadow: 0 0 24px rgba(245,158,11,0.12);
-}
-.v-status-text {}
-.v-status-label {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  margin-bottom: 5px;
-}
-.label-green { color: #34d399; }
-.label-red   { color: #f87171; }
-.label-orange{ color: #fbbf24; }
-.v-status-title {
-  font-family: 'Space Grotesk', sans-serif;
-  font-size: 20px;
-  font-weight: 700;
-  line-height: 1.2;
+.verify-header-logo {
+  font-size: 36px;
   margin-bottom: 8px;
 }
-.title-green  { color: #ecfdf5; }
-.title-red    { color: #fef2f2; }
-.title-orange { color: #fffbeb; }
-.v-status-desc {
-  font-size: 13px;
-  line-height: 1.6;
-  max-width: 420px;
-}
-.desc-green  { color: #a7f3d0; }
-.desc-red    { color: #fecaca; }
-.desc-orange { color: #fde68a; }
-.v-status-pill {
-  margin-left: auto;
-  flex-shrink: 0;
-  padding: 8px 18px;
-  border-radius: 24px;
-  font-family: 'Space Grotesk', sans-serif;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  align-self: flex-start;
-}
-.pill-green  { background: rgba(16,185,129,0.2);  border: 1px solid rgba(16,185,129,0.5);  color: #34d399; }
-.pill-red    { background: rgba(239,68,68,0.15);   border: 1px solid rgba(239,68,68,0.4);   color: #f87171; }
-.pill-orange { background: rgba(245,158,11,0.12);  border: 1px solid rgba(245,158,11,0.4);  color: #fbbf24; }
-
-/* CASE 2: TAMPERED */
-.v-result-tampered {
-  display: none;
-  flex-direction: column;
-}
-.v-result-tampered .v-status-banner {
-  background: linear-gradient(135deg, #1c0606, #3d0a0a);
-  border-bottom: 1px solid rgba(239,68,68,0.2);
-  padding: 32px 40px;
-  display: flex;
-  align-items: center;
-  gap: 24px;
-  position: relative;
-  overflow: hidden;
-}
-.v-result-tampered .v-status-banner::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0; height: 3px;
-  background: linear-gradient(90deg, #ef4444, #f87171, #ef4444);
-}
-
-/* CASE 3: NOT FOUND */
-.v-result-notfound {
-  display: none;
-  flex-direction: column;
-}
-.v-result-notfound .v-status-banner {
-  background: linear-gradient(135deg, #1a1200, #2d1f00);
-  border-bottom: 1px solid rgba(245,158,11,0.2);
-  padding: 32px 40px;
-  display: flex;
-  align-items: center;
-  gap: 24px;
-  position: relative;
-  overflow: hidden;
-}
-.v-result-notfound .v-status-banner::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0; height: 3px;
-  background: linear-gradient(90deg, #f59e0b, #fbbf24, #f59e0b);
-}
-
-/* ── DETAILS TABLE ───────────────────────────────────────── */
-.v-details {
-  padding: 0 40px 32px;
-}
-.v-details-heading {
-  font-family: 'Space Grotesk', sans-serif;
-  font-size: 11px;
-  font-weight: 700;
+.verify-header-title {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: #475569;
-  padding: 24px 0 14px;
-  border-bottom: 1px solid #1e2d45;
-  margin-bottom: 0;
 }
-.v-detail-row {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 13px 0;
-  border-bottom: 1px solid rgba(30,45,69,0.7);
-}
-.v-detail-row:last-child { border-bottom: none; }
-.v-detail-lbl {
-  font-size: 12px;
-  color: #64748b;
-  font-weight: 500;
-  flex-shrink: 0;
-  min-width: 180px;
-}
-.v-detail-val {
-  font-size: 13px;
-  font-weight: 600;
-  color: #e2e8f0;
-  text-align: right;
-  word-break: break-all;
-  max-width: 380px;
-}
-.v-detail-val.mono {
-  font-family: 'JetBrains Mono', 'Courier New', monospace;
-  font-size: 11px;
-  color: #38bdf8;
-  letter-spacing: 0.02em;
-}
-.v-detail-val.green { color: #34d399; }
-.v-detail-val.red   { color: #f87171; }
-.v-detail-val.orange{ color: #fbbf24; }
-
-/* Hash truncation with expand */
-.hash-short { display: inline; }
-.hash-full  { display: none;   font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #38bdf8; word-break: break-all; }
-.hash-toggle {
-  display: inline;
-  margin-left: 6px;
-  font-size: 10px;
-  color: #0ea5e9;
-  cursor: pointer;
-  text-decoration: underline;
-  font-family: inherit;
-  background: none;
-  border: none;
-  padding: 0;
-  font-weight: 500;
+.verify-header-biz {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--white);
+  margin-top: 4px;
 }
 
-/* ── DIVIDER ─────────────────────────────────────────────── */
-.v-divider {
-  height: 1px;
-  background: linear-gradient(90deg, transparent, #1e2d45 30%, #1e2d45 70%, transparent);
-  margin: 0 40px;
+/* ── CARD ────────────────────────────────────────────────── */
+.verify-card {
+  width: 100%;
+  max-width: 520px;
+  border-radius: var(--radius-lg);
+  padding: 36px 32px;
+  background: var(--navy-2);
+  border: 1px solid var(--border);
 }
 
-/* ── INTEGRITY VERDICT ROW ───────────────────────────────── */
-.v-verdict-row {
+/* ── STATUS BADGE ────────────────────────────────────────── */
+.status-badge {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 13px 0;
-  border-bottom: 1px solid rgba(30,45,69,0.7);
+  gap: 14px;
+  padding: 20px 24px;
+  border-radius: var(--radius-md);
+  margin-bottom: 28px;
 }
-.v-verdict-lbl {
+.status-badge.original {
+  background: rgba(16,185,129,0.10);
+  border: 1.5px solid rgba(16,185,129,0.35);
+}
+.status-badge.tampered {
+  background: rgba(239,68,68,0.10);
+  border: 1.5px solid rgba(239,68,68,0.35);
+}
+.status-badge.not-found {
+  background: rgba(245,158,11,0.10);
+  border: 1.5px solid rgba(245,158,11,0.35);
+}
+.status-badge.loading {
+  background: var(--blue-glow);
+  border: 1.5px solid rgba(14,165,233,0.25);
+}
+.status-badge.error {
+  background: rgba(239,68,68,0.08);
+  border: 1.5px solid rgba(239,68,68,0.2);
+}
+
+.status-icon { font-size: 32px; line-height: 1; flex-shrink: 0; }
+.status-text-main {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.status-badge.original .status-text-main { color: #10b981; }
+.status-badge.tampered .status-text-main { color: #ef4444; }
+.status-badge.not-found .status-text-main { color: #f59e0b; }
+.status-badge.loading .status-text-main { color: var(--blue); }
+.status-badge.error .status-text-main { color: #ef4444; }
+
+.status-text-sub {
   font-size: 12px;
-  color: #64748b;
-  font-weight: 500;
-  flex-shrink: 0;
-  min-width: 180px;
+  color: var(--muted);
+  margin-top: 3px;
+  line-height: 1.4;
 }
-.verdict-chip {
+
+/* ── DETAIL ROWS ─────────────────────────────────────────── */
+.detail-rows { display: flex; flex-direction: column; gap: 0; }
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+.detail-row:last-child { border-bottom: none; }
+.detail-lbl {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+  padding-top: 1px;
+}
+.detail-val {
+  font-size: 13px;
+  color: var(--white);
+  font-weight: 500;
+  text-align: right;
+  word-break: break-all;
+}
+.detail-val.mono {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--blue);
+}
+.detail-val.hash {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: #10b981;
+  word-break: break-all;
+}
+.detail-val.match    { color: #10b981; }
+.detail-val.mismatch { color: #ef4444; }
+
+/* ── HASH SECTION ────────────────────────────────────────── */
+.hash-section {
+  margin-top: 20px;
+  padding: 16px;
+  background: var(--navy-3, #111f35);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-soft);
+}
+.hash-section-title {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 8px;
+}
+.hash-value {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: #10b981;
+  word-break: break-all;
+  line-height: 1.6;
+}
+.hash-value.mismatch { color: #ef4444; }
+
+/* ── BACK LINK ───────────────────────────────────────────── */
+.verify-back {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-.verdict-chip.ok       { background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.35); color: #34d399; }
-.verdict-chip.fail     { background: rgba(239,68,68,0.10);  border: 1px solid rgba(239,68,68,0.3);   color: #f87171; }
-.verdict-chip.unknown  { background: rgba(245,158,11,0.10); border: 1px solid rgba(245,158,11,0.3);  color: #fbbf24; }
-
-/* ── DISCLAIMER ──────────────────────────────────────────── */
-.v-disclaimer {
-  margin: 0 40px 32px;
-  padding: 14px 18px;
-  background: rgba(14,165,233,0.04);
-  border: 1px solid rgba(14,165,233,0.1);
-  border-radius: 10px;
-  font-size: 11px;
-  line-height: 1.7;
-  color: #475569;
-}
-.v-disclaimer strong { color: #64748b; }
-
-/* ── FOOTER ACTIONS ──────────────────────────────────────── */
-.v-actions {
-  padding: 0 40px 32px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-.v-actions-left {
-  font-size: 11px;
-  color: #334155;
-}
-.v-actions-left span { color: #475569; }
-.btn-v-back {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 9px 20px;
-  background: rgba(14,165,233,0.07);
-  border: 1px solid rgba(14,165,233,0.18);
-  border-radius: 8px;
-  color: #7dd3fc;
   font-size: 12px;
-  font-weight: 600;
+  color: var(--muted);
   text-decoration: none;
-  transition: all 0.15s;
-  cursor: pointer;
+  padding: 8px 0;
+  transition: color 0.15s;
 }
-.btn-v-back:hover {
-  background: rgba(14,165,233,0.12);
-  border-color: rgba(14,165,233,0.3);
-  color: #38bdf8;
+.verify-back:hover { color: var(--blue); text-decoration: none; }
+
+/* ── FOOTER ──────────────────────────────────────────────── */
+.verify-footer {
+  font-size: 11px;
+  color: var(--muted);
+  text-align: center;
+  line-height: 1.5;
+}
+.verify-footer span {
+  font-family: var(--font-mono);
+  color: var(--blue);
+  font-size: 10px;
 }
 
-/* ── INSTITUTIONAL FOOTER ────────────────────────────────── */
-.inst-footer {
-  margin-top: auto;
-  width: 100%;
-  padding: 20px 32px;
-  border-top: 1px solid #0d1829;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  position: relative;
-  z-index: 1;
-}
-.inst-footer-text {
-  font-size: 10.5px;
-  color: #1e2d45;
-  letter-spacing: 0.05em;
-  font-weight: 500;
-  text-transform: uppercase;
-}
-.inst-footer-dot {
-  width: 3px; height: 3px;
+/* ── SPINNER ─────────────────────────────────────────────── */
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner {
+  width: 18px; height: 18px;
+  border: 2px solid rgba(14,165,233,0.25);
+  border-top-color: var(--blue);
   border-radius: 50%;
-  background: #1e2d45;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
 }
-
-/* ── TOAST ───────────────────────────────────────────────── */
-#toastContainer {
-  position: fixed;
-  top: 20px; right: 20px;
-  z-index: 9999;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.toast {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 16px;
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 500;
-  background: #1e2d45;
-  border: 1px solid #2d3d55;
-  color: #e2e8f0;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-  animation: toastIn 0.25s ease;
-}
-@keyframes toastIn { from { opacity:0; transform:translateX(20px); } to { opacity:1; transform:none; } }
 
 /* ── RESPONSIVE ──────────────────────────────────────────── */
 @media (max-width: 600px) {
-  .v-page { padding: 24px 12px 48px; }
-  .v-result-verified .v-status-banner,
-  .v-result-tampered .v-status-banner,
-  .v-result-notfound .v-status-banner {
-    flex-direction: column;
-    padding: 24px 20px;
-    gap: 16px;
-  }
-  .v-status-pill { margin-left: 0; align-self: flex-start; }
-  .v-details { padding: 0 20px 24px; }
-  .v-detail-row { flex-direction: column; gap: 4px; }
-  .v-detail-val { text-align: left; max-width: 100%; }
-  .v-detail-lbl { min-width: unset; }
-  .v-divider { margin: 0 20px; }
-  .v-disclaimer { margin: 0 20px 24px; }
-  .v-actions { padding: 0 20px 24px; }
-  .inst-header { padding: 10px 16px; }
-  .inst-badge { display: none; }
-  .v-verdict-row { flex-direction: column; gap: 4px; }
+  .verify-card { padding: 24px 20px; }
+  .status-badge { padding: 16px 18px; gap: 12px; }
+  .status-icon { font-size: 26px; }
+  .status-text-main { font-size: 14px; }
 }
 </style>
 </head>
 <body>
 
-<div id="toastContainer" aria-live="polite" aria-atomic="true"></div>
+<div class="verify-shell">
 
-<!-- ── INSTITUTIONAL HEADER ───────────────────────────────── -->
-<header class="inst-header">
-  <div class="inst-brand">
-    <div class="inst-seal">🛡️</div>
-    <div class="inst-name">
-      DEMS Secure Transaction Engine
-      <small>Digital Exchange Management System</small>
-    </div>
-  </div>
-  <div class="inst-badge">
-    <span>●</span> Official Verification Portal
-  </div>
-</header>
-
-<!-- ── MAIN PAGE ──────────────────────────────────────────── -->
-<main class="v-page">
-
-  <div class="v-page-title">
-    <div class="v-page-eyebrow">Receipt Verification</div>
-    <h1 class="v-page-heading">Transaction Integrity Check</h1>
-    <p class="v-page-sub">
-      This portal confirms whether a printed or digital receipt has been issued by this system
-      and has not been modified after issuance.
-    </p>
+  <!-- Header -->
+  <div class="verify-header">
+    <div class="verify-header-logo" id="vBizLogo">⬡</div>
+    <div class="verify-header-title">Receipt Verification</div>
+    <div class="verify-header-biz" id="vBizName">Digital Exchange Management System</div>
   </div>
 
-  <div class="v-card">
+  <!-- Result Card -->
+  <div class="verify-card" id="verifyCard">
 
-    <!-- ── LOADING ──────────────────────────────────────────── -->
-    <div class="v-loading" id="loadingArea">
-      <div class="v-spinner-ring"></div>
-      <div class="v-loading-title">Performing integrity verification…</div>
-      <div class="v-loading-sub">Reading receipt record and validating security signature</div>
-      <div class="v-loading-steps">
-        <div class="v-step"><div class="v-step-dot"></div> Reading receipt number from request</div>
-        <div class="v-step"><div class="v-step-dot"></div> Loading transaction record from database</div>
-        <div class="v-step"><div class="v-step-dot"></div> Comparing SHA-256 security signature</div>
+    <!-- Status badge — updated by showResult() -->
+    <div class="status-badge loading" id="statusBadge">
+      <div class="spinner" id="statusIcon"></div>
+      <div>
+        <div class="status-text-main" id="statusMain">Verifying…</div>
+        <div class="status-text-sub" id="statusSub">Loading database and checking receipt integrity.</div>
       </div>
     </div>
 
-    <!-- ── CASE 1: VERIFIED ─────────────────────────────────── -->
-    <div class="v-result-verified" id="resultVerified">
-      <div class="v-status-banner">
-        <div class="v-status-icon-ring icon-ring-green">✓</div>
-        <div class="v-status-text">
-          <div class="v-status-label label-green">Verification Status</div>
-          <div class="v-status-title title-green">ORIGINAL CERTIFIED RECORD</div>
-          <div class="v-status-desc desc-green">
-            This transaction is authentic. The transaction has successfully passed integrity verification.
-            No unauthorized modifications were detected.
-          </div>
-        </div>
-        <div class="v-status-pill pill-green">✓ VALID</div>
+    <!-- Detail rows — shown only when a record is found -->
+    <div class="detail-rows" id="detailRows" style="display:none;">
+      <div class="detail-row">
+        <div class="detail-lbl">Receipt Number</div>
+        <div class="detail-val mono" id="dReceiptNum">—</div>
       </div>
-
-      <div class="v-details" id="detailsVerified">
-        <div class="v-details-heading">Verified Transaction Details</div>
-        <div class="v-detail-row">
-          <div class="v-detail-lbl">Receipt Number</div>
-          <div class="v-detail-val mono" id="vd1RecNum">—</div>
-        </div>
-        <div class="v-detail-row">
-          <div class="v-detail-lbl">Transaction Date</div>
-          <div class="v-detail-val" id="vd1Date">—</div>
-        </div>
-        <div class="v-detail-row">
-          <div class="v-detail-lbl">Client Name</div>
-          <div class="v-detail-val" id="vd1ClientName">—</div>
-        </div>
-        <div class="v-detail-row">
-          <div class="v-detail-lbl">Client CNIC</div>
-          <div class="v-detail-val mono" id="vd1ClientCnic">—</div>
-        </div>
-        <div class="v-detail-row">
-          <div class="v-detail-lbl">Cash Amount (PKR)</div>
-          <div class="v-detail-val" id="vd1AmountPkr">—</div>
-        </div>
-        <div class="v-detail-row">
-          <div class="v-detail-lbl">Exchange Rate</div>
-          <div class="v-detail-val" id="vd1Rate">—</div>
-        </div>
-        <div class="v-detail-row">
-          <div class="v-detail-lbl">USDT Amount</div>
-          <div class="v-detail-val" id="vd1AmountUsdt">—</div>
-        </div>
-        <div class="v-detail-row">
-          <div class="v-detail-lbl">Record Number</div>
-          <div class="v-detail-val" id="vd1RecordNum">—</div>
-        </div>
-        <div class="v-detail-row">
-          <div class="v-detail-lbl">Security Signature (SHA-256)</div>
-          <div class="v-detail-val">
-            <span class="hash-short" id="vd1HashShort">—</span>
-            <span class="hash-full" id="vd1HashFull">—</span>
-            <button class="hash-toggle" id="vd1HashToggleBtn" onclick="toggleHash('vd1')" style="display:none;">Show full</button>
-          </div>
-        </div>
-        <div class="v-detail-row">
-          <div class="v-detail-lbl">Previous Record Signature</div>
-          <div class="v-detail-val">
-            <span class="hash-short" id="vd1PrevShort">—</span>
-            <span class="hash-full" id="vd1PrevFull">—</span>
-            <button class="hash-toggle" id="vd1PrevToggleBtn" onclick="togglePrev('vd1')" style="display:none;">Show full</button>
-          </div>
-        </div>
-        <div class="v-detail-row">
-          <div class="v-detail-lbl">Verification Time</div>
-          <div class="v-detail-val" id="vd1VerifyTime">—</div>
-        </div>
-        <div class="v-verdict-row">
-          <div class="v-verdict-lbl">Verification Result</div>
-          <div class="verdict-chip ok">✓ Integrity Confirmed — No Alterations Detected</div>
-        </div>
+      <div class="detail-row">
+        <div class="detail-lbl">Transaction Type</div>
+        <div class="detail-val" id="dTxnType">—</div>
+      </div>
+      <div class="detail-row">
+        <div class="detail-lbl">Amount (PKR)</div>
+        <div class="detail-val" id="dAmountPkr">—</div>
+      </div>
+      <div class="detail-row">
+        <div class="detail-lbl">Client Name</div>
+        <div class="detail-val" id="dClientName">—</div>
+      </div>
+      <div class="detail-row">
+        <div class="detail-lbl">Date / Time</div>
+        <div class="detail-val" id="dTimestamp">—</div>
+      </div>
+      <div class="detail-row">
+        <div class="detail-lbl">Chain Position</div>
+        <div class="detail-val" id="dChainIndex">—</div>
+      </div>
+      <div class="detail-row">
+        <div class="detail-lbl">Hash Check</div>
+        <div class="detail-val" id="dHashCheck">—</div>
+      </div>
+      <div class="detail-row">
+        <div class="detail-lbl">Chain Link</div>
+        <div class="detail-val" id="dLinkCheck">—</div>
       </div>
     </div>
 
-    <!-- ── CASE 2: TAMPERED ─────────────────────────────────── -->
-    <div class="v-result-tampered" id="resultTampered">
-      <div class="v-status-banner">
-        <div class="v-status-icon-ring icon-ring-red">✖</div>
-        <div class="v-status-text">
-          <div class="v-status-label label-red">Security Alert</div>
-          <div class="v-status-title title-red">RECORD ALTERED / TAMPERED</div>
-          <div class="v-status-desc desc-red" id="tamperedDesc">
-            The stored security signature does not match the current transaction data.
-            This receipt appears to have been modified after issuance.
-          </div>
-        </div>
-        <div class="v-status-pill pill-red">✖ INVALID</div>
-      </div>
-
-      <div class="v-details" id="detailsTampered">
-        <div class="v-details-heading">Transaction Record Details</div>
-        <div class="v-detail-row">
-          <div class="v-detail-lbl">Receipt Number</div>
-          <div class="v-detail-val mono" id="vd2RecNum">—</div>
-        </div>
-        <div class="v-detail-row">
-          <div class="v-detail-lbl">Transaction Date</div>
-          <div class="v-detail-val" id="vd2Date">—</div>
-        </div>
-        <div class="v-detail-row">
-          <div class="v-detail-lbl">Client Name</div>
-          <div class="v-detail-val" id="vd2ClientName">—</div>
-        </div>
-        <div class="v-detail-row">
-          <div class="v-detail-lbl">Client CNIC</div>
-          <div class="v-detail-val mono" id="vd2ClientCnic">—</div>
-        </div>
-        <div class="v-detail-row">
-          <div class="v-detail-lbl">Cash Amount (PKR)</div>
-          <div class="v-detail-val" id="vd2AmountPkr">—</div>
-        </div>
-        <div class="v-detail-row">
-          <div class="v-detail-lbl">Exchange Rate</div>
-          <div class="v-detail-val" id="vd2Rate">—</div>
-        </div>
-        <div class="v-detail-row">
-          <div class="v-detail-lbl">USDT Amount</div>
-          <div class="v-detail-val" id="vd2AmountUsdt">—</div>
-        </div>
-        <div class="v-detail-row">
-          <div class="v-detail-lbl">Record Number</div>
-          <div class="v-detail-val" id="vd2RecordNum">—</div>
-        </div>
-        <div class="v-detail-row">
-          <div class="v-detail-lbl">Stored Signature (SHA-256)</div>
-          <div class="v-detail-val">
-            <span class="hash-short" id="vd2HashShort">—</span>
-            <span class="hash-full" id="vd2HashFull">—</span>
-            <button class="hash-toggle" id="vd2HashToggleBtn" onclick="toggleHash('vd2')" style="display:none;">Show full</button>
-          </div>
-        </div>
-        <div class="v-detail-row">
-          <div class="v-detail-lbl">Previous Record Signature</div>
-          <div class="v-detail-val">
-            <span class="hash-short" id="vd2PrevShort">—</span>
-            <span class="hash-full" id="vd2PrevFull">—</span>
-            <button class="hash-toggle" id="vd2PrevToggleBtn" onclick="togglePrev('vd2')" style="display:none;">Show full</button>
-          </div>
-        </div>
-        <div class="v-detail-row">
-          <div class="v-detail-lbl">Verification Time</div>
-          <div class="v-detail-val" id="vd2VerifyTime">—</div>
-        </div>
-        <div class="v-verdict-row">
-          <div class="v-verdict-lbl">Verification Result</div>
-          <div class="verdict-chip fail">✖ Integrity Failure — Signature Mismatch Detected</div>
-        </div>
-      </div>
+    <!-- SHA-256 hash — shown only when a record is found -->
+    <div class="hash-section" id="hashSection" style="display:none;">
+      <div class="hash-section-title">Security Signature (SHA-256)</div>
+      <div class="hash-value" id="dStoredHash">—</div>
     </div>
 
-    <!-- ── CASE 3: NOT FOUND ────────────────────────────────── -->
-    <div class="v-result-notfound" id="resultNotFound">
-      <div class="v-status-banner">
-        <div class="v-status-icon-ring icon-ring-orange">⚠</div>
-        <div class="v-status-text">
-          <div class="v-status-label label-orange">Record Lookup</div>
-          <div class="v-status-title title-orange">TRANSACTION RECORD NOT FOUND</div>
-          <div class="v-status-desc desc-orange">
-            The requested transaction does not exist in the system.
-            Please verify the receipt number or QR Code and try again.
-          </div>
-        </div>
-        <div class="v-status-pill pill-orange">⚠ NOT FOUND</div>
-      </div>
-      <div class="v-details">
-        <div class="v-details-heading">Lookup Information</div>
-        <div class="v-detail-row">
-          <div class="v-detail-lbl">Queried Receipt Number</div>
-          <div class="v-detail-val mono" id="vd3Queried">—</div>
-        </div>
-        <div class="v-detail-row">
-          <div class="v-detail-lbl">Verification Time</div>
-          <div class="v-detail-val" id="vd3Time">—</div>
-        </div>
-        <div class="v-verdict-row">
-          <div class="v-verdict-lbl">Verification Result</div>
-          <div class="verdict-chip unknown">⚠ Record Not Found in System</div>
-        </div>
-      </div>
-    </div>
+  </div><!-- /verify-card -->
 
-    <!-- ── DISCLAIMER ───────────────────────────────────────── -->
-    <div class="v-disclaimer" id="disclaimerBlock" style="display:none;">
-      <strong>Notice:</strong> This verification confirms the record's stored security signature is internally
-      consistent with the transaction data currently held in the issuing system's database. It confirms
-      whether the receipt is original, altered, or not found — based on SHA-256 digital signature comparison.
-      This verification is provided by the DEMS Secure Transaction Engine.
-    </div>
+  <!-- Back link (only useful when opened manually in a browser) -->
+  <a href="javascript:history.back()" class="verify-back">← Back</a>
 
-    <!-- ── ACTIONS ──────────────────────────────────────────── -->
-    <div class="v-actions">
-      <div class="v-actions-left">
-        Powered by <span>DEMS Secure Transaction Engine</span>
-      </div>
-      <a href="index.html" class="btn-v-back">
-        ← Return to System
-      </a>
-    </div>
+  <!-- Footer -->
+  <div class="verify-footer">
+    DEMS Secure Transaction Engine<br>
+    <span>SHA-256 Integrity Verification</span>
+  </div>
 
-  </div><!-- /v-card -->
-</main>
+</div><!-- /verify-shell -->
 
-<!-- ── INSTITUTIONAL FOOTER ───────────────────────────────── -->
-<footer class="inst-footer">
-  <div class="inst-footer-text">DEMS Secure Transaction Engine</div>
-  <div class="inst-footer-dot"></div>
-  <div class="inst-footer-text">SHA-256 Record Verification</div>
-  <div class="inst-footer-dot"></div>
-  <div class="inst-footer-text">Integrity Engine v2</div>
-</footer>
-
-<!-- ─────────────────────────────────────────────────────── -->
+<!-- ── SCRIPTS ──────────────────────────────────────────────
+     Load order matters: DB → AuditLog → HashEngine.
+     No auth.js: this is a public verification page accessible
+     by anyone who scans the QR, without needing to log in.
+     Verification works only on the same browser / device that
+     holds the IndexedDB data (offline-first by design). ─────── -->
 <script src="db.js"></script>
+<script src="audit-log.js"></script>
 <script src="hash-engine.js"></script>
 <script>
 'use strict';
 
-/* ── UTILITIES ────────────────────────────────────────────── */
-function el(id) { return document.getElementById(id); }
-
-function fmtDate(iso) {
-  try {
-    return new Date(iso).toLocaleString('en-PK', {
-      year: 'numeric', month: 'long', day: '2-digit',
-      hour: '2-digit', minute: '2-digit', second: '2-digit',
-      hour12: true
-    });
-  } catch { return iso || '—'; }
+// ── SAFETY STUB ───────────────────────────────────────────
+// audit-log.js may depend on Auth which isn't loaded here.
+// Define a no-op AuditLog if it failed to load — hash-engine.js
+// calls AuditLog.add() and must not throw when verifying.
+if (typeof AuditLog === 'undefined') {
+  window.AuditLog = {
+    add(action, detail) {
+      console.info('[AuditLog stub]', action, detail);
+    }
+  };
 }
 
-function fmtNow() {
-  return new Date().toLocaleString('en-PK', {
-    year: 'numeric', month: 'long', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', second: '2-digit',
-    hour12: true
-  });
-}
-
-function fmtPkr(val) {
-  return `₨ ${parseFloat(val || 0).toLocaleString('en-PK', { minimumFractionDigits: 2 })}`;
-}
-
-function fmtUsdt(val) {
-  return `${parseFloat(val || 0).toFixed(2)} USDT`;
-}
-
-/* Hash display helpers — show first 16 chars + ellipsis by default */
-function setHash(prefix, fullHash) {
-  if (!fullHash) return;
-  const upper = fullHash.toUpperCase();
-  const short = upper.slice(0, 16) + '…' + upper.slice(-8);
-  el(prefix + 'HashShort').textContent = short;
-  el(prefix + 'HashFull').textContent  = upper;
-  el(prefix + 'HashToggleBtn').style.display = 'inline';
-}
-function setPrev(prefix, fullHash) {
-  if (!fullHash) return;
-  const upper = fullHash.toUpperCase();
-  const isGenesis = upper === '0'.repeat(64);
-  const short = isGenesis ? 'GENESIS (first record)' : upper.slice(0, 16) + '…' + upper.slice(-8);
-  el(prefix + 'PrevShort').textContent = short;
-  el(prefix + 'PrevFull').textContent  = upper;
-  if (!isGenesis) el(prefix + 'PrevToggleBtn').style.display = 'inline';
-}
-function toggleHash(prefix) {
-  const s = el(prefix + 'HashShort');
-  const f = el(prefix + 'HashFull');
-  const b = el(prefix + 'HashToggleBtn');
-  const showing = f.style.display !== 'none';
-  s.style.display = showing ? 'inline' : 'none';
-  f.style.display = showing ? 'none'   : 'inline';
-  b.textContent   = showing ? 'Show full' : 'Collapse';
-}
-function togglePrev(prefix) {
-  const s = el(prefix + 'PrevShort');
-  const f = el(prefix + 'PrevFull');
-  const b = el(prefix + 'PrevToggleBtn');
-  const showing = f.style.display !== 'none';
-  s.style.display = showing ? 'inline' : 'none';
-  f.style.display = showing ? 'none'   : 'inline';
-  b.textContent   = showing ? 'Show full' : 'Collapse';
-}
-
-/* ── POPULATE DETAIL PANELS ──────────────────────────────── */
-function populateDetails(prefix, txn) {
-  el(prefix + 'RecNum').textContent      = txn.receipt_number || '—';
-  el(prefix + 'Date').textContent        = fmtDate(txn.timestamp);
-  el(prefix + 'ClientName').textContent  = txn.client_name  || 'Walk-in Client';
-  el(prefix + 'ClientCnic').textContent  = txn.client_cnic  || '—';
-  el(prefix + 'AmountPkr').textContent   = fmtPkr(txn.amount_pkr);
-  el(prefix + 'Rate').textContent        = `${parseFloat(txn.exchange_rate || 0).toFixed(3)} PKR/USDT`;
-  el(prefix + 'AmountUsdt').textContent  = fmtUsdt(txn.amount_usdt);
-  el(prefix + 'RecordNum').textContent   = `Record #${txn.chain_index}`;
-  el(prefix + 'VerifyTime').textContent  = fmtNow();
-  setHash(prefix, txn.hash);
-  setPrev(prefix, txn.prev_hash);
-}
-
-/* ── SHOW RESULT STATE ───────────────────────────────────── */
-function showVerified(txn) {
-  el('loadingArea').style.display   = 'none';
-  const d = el('resultVerified');
-  d.style.display = 'flex';
-  populateDetails('vd1', txn);
-  el('disclaimerBlock').style.display = 'block';
-}
-
-function showTampered(txn, reasons) {
-  el('loadingArea').style.display = 'none';
-  const d = el('resultTampered');
-  d.style.display = 'flex';
-  if (reasons && reasons.length) {
-    el('tamperedDesc').textContent =
-      `Security alert: ${reasons.join(', and ')}. ` +
-      'This receipt appears to have been modified after issuance.';
-  }
-  populateDetails('vd2', txn);
-  el('disclaimerBlock').style.display = 'block';
-}
-
-function showNotFound(queriedReceipt) {
-  el('loadingArea').style.display = 'none';
-  el('resultNotFound').style.display = 'flex';
-  el('vd3Queried').textContent = queriedReceipt || '(not specified)';
-  el('vd3Time').textContent    = fmtNow();
-  el('disclaimerBlock').style.display = 'block';
-}
-
-/* ── MAIN VERIFICATION FLOW ──────────────────────────────── */
+// ── MAIN ──────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', async () => {
-  try {
-    await DB.init();
-  } catch (e) {
-    console.warn('[Verify] DB.init error:', e);
-  }
-  await runVerification();
-});
 
-async function runVerification() {
-  const params  = new URLSearchParams(window.location.search);
-  const receipt = params.get('receipt');
-  const hashKey = params.get('hash');   // legacy fallback
+  // ── PHASE 1: Parse URL parameter ─────────────────────────
+  const params        = new URLSearchParams(window.location.search);
+  const receiptNumber = params.get('receipt');
 
-  // No parameters at all → not found
-  if (!receipt && !hashKey) {
-    showNotFound(null);
+  console.info('[Verify] Page loaded. Receipt param:', receiptNumber);
+
+  if (!receiptNumber) {
+    showResult('no-receipt', null, null);
     return;
   }
 
+  // ── PHASE 2: Load DB ──────────────────────────────────────
   try {
-    // 1. Load the raw transaction record
-    let txn = null;
-    if (receipt) {
-      txn = await DB.get(
-        `SELECT * FROM transactions WHERE receipt_number = ?`,
-        [receipt]
-      );
-    } else if (hashKey) {
-      txn = await DB.get(
-        `SELECT * FROM transactions WHERE hash = ?`,
-        [hashKey]
-      );
-    }
+    console.info('[Verify] Calling DB.init()…');
+    await DB.init();
+    console.info('[Verify] DB.init() complete.');
 
-    if (!txn) {
-      showNotFound(receipt || hashKey);
-      // Attempt to log — non-fatal if verification_log table doesn't exist yet
-      try {
-        await DB.run(
-          `INSERT INTO verification_log (receipt_number, verified_at, result, user_agent)
-           VALUES (?, ?, 'NOT_FOUND', ?)`,
-          [receipt || 'UNKNOWN', new Date().toISOString(), navigator.userAgent]
-        );
-      } catch (_) {}
-      return;
-    }
+    // Runtime diagnostics (always printed so they appear in DevTools)
+    const countRow = await DB.get('SELECT COUNT(*) as cnt FROM transactions');
+    console.info('[Verify] Total records in transactions table:', countRow ? countRow.cnt : 'query failed');
 
-    // 2. Run integrity verification via HashEngine
-    let verification;
-    try {
-      verification = receipt
-        ? await HashEngine.verifyByReceiptNumber(txn.receipt_number)
-        : await HashEngine.verifyByHash(txn.hash);
-    } catch (verErr) {
-      console.error('[Verify] HashEngine error:', verErr);
-      // If HashEngine itself throws, fall back to not-found display
-      showNotFound(receipt || hashKey);
-      return;
-    }
+    const first5 = await DB.all('SELECT receipt_number FROM transactions LIMIT 5');
+    console.info('[Verify] First 5 receipt_numbers in DB:', first5.map(r => r.receipt_number));
 
-    if (!verification || !verification.found) {
-      showNotFound(receipt || hashKey);
-      return;
-    }
+    console.info('[Verify] Running SELECT * FROM transactions WHERE receipt_number =', receiptNumber);
+    const directRow = await DB.get(
+      'SELECT receipt_number, chain_index, hash FROM transactions WHERE receipt_number = ?',
+      [receiptNumber]
+    );
+    console.info('[Verify] Direct SELECT result:', directRow);
 
-    // 3. Display result
-    if (verification.intact) {
-      showVerified(txn);
-    } else {
-      const reasons = [];
-      if (!verification.hashValid) {
-        reasons.push('the security signature no longer matches the stored transaction data');
-      }
-      if (!verification.linkValid) {
-        reasons.push('this record is not correctly linked to the preceding record in the chain');
-      }
-      showTampered(txn, reasons);
-    }
-
-  } catch (e) {
-    console.error('[Verify] Unexpected error:', e);
-    showNotFound(receipt || hashKey);
-    Toast.show('Verification error: ' + e.message, 'error');
+  } catch (dbErr) {
+    console.error('[Verify] DB.init() or diagnostics failed:', dbErr);
+    showResult('error', null, receiptNumber, dbErr.message);
+    return;
   }
+
+  // ── PHASE 3: Try to load business profile ────────────────
+  try {
+    if (typeof Profile !== 'undefined') {
+      const p = await Profile.get();
+      if (p) {
+        const logoEl = document.getElementById('vBizLogo');
+        const nameEl = document.getElementById('vBizName');
+        if (logoEl && p.logoEmoji) logoEl.textContent = p.logoEmoji;
+        if (nameEl && p.businessName) nameEl.textContent = p.businessName;
+      }
+    }
+  } catch (profileErr) {
+    // Non-fatal — profile is cosmetic only on the verify page
+    console.warn('[Verify] Profile load skipped:', profileErr.message);
+  }
+
+  // ── PHASE 4: Verify ───────────────────────────────────────
+  try {
+    console.info('[Verify] Calling HashEngine.verifyByReceiptNumber(', receiptNumber, ')…');
+    const result = await HashEngine.verifyByReceiptNumber(receiptNumber);
+    console.info('[Verify] Verification result:', result);
+    showResult(result.status, result, receiptNumber);
+  } catch (verifyErr) {
+    console.error('[Verify] HashEngine.verifyByReceiptNumber threw:', verifyErr);
+    showResult('error', null, receiptNumber, verifyErr.message);
+  }
+
+});
+
+// ── SHOW RESULT ────────────────────────────────────────────
+function showResult(status, result, receiptNumber, errorMsg) {
+  const badge      = document.getElementById('statusBadge');
+  const iconEl     = document.getElementById('statusIcon');
+  const mainEl     = document.getElementById('statusMain');
+  const subEl      = document.getElementById('statusSub');
+  const detailRows = document.getElementById('detailRows');
+  const hashSec    = document.getElementById('hashSection');
+
+  // Clear loading state
+  badge.className = 'status-badge';
+
+  // ── ORIGINAL ────────────────────────────────────────────
+  if (status === 'ORIGINAL') {
+    badge.classList.add('original');
+    iconEl.outerHTML = '<div class="status-icon" id="statusIcon">✅</div>';
+    mainEl.textContent = '✔ ORIGINAL CERTIFIED RECORD';
+    subEl.textContent  = 'This receipt is authentic. The transaction data has not been altered.';
+
+    detailRows.style.display = 'flex';
+    hashSec.style.display    = 'block';
+
+    document.getElementById('dReceiptNum').textContent  = result.receiptNumber || receiptNumber;
+    document.getElementById('dTxnType').textContent     = result.txnType === 'buy'
+      ? 'BUY  (Client sold USDT)'
+      : result.txnType === 'sell'
+        ? 'SELL  (Client bought USDT)'
+        : (result.txnType || '—');
+    document.getElementById('dAmountPkr').textContent   = result.amountPkr
+      ? `₨ ${parseFloat(result.amountPkr).toLocaleString('en-PK', { minimumFractionDigits: 2 })}`
+      : '—';
+    document.getElementById('dClientName').textContent  = result.clientName || 'Walk-in Client';
+    document.getElementById('dTimestamp').textContent   = result.timestamp
+      ? new Date(result.timestamp).toLocaleString('en-PK', { hour12: true })
+      : '—';
+    document.getElementById('dChainIndex').textContent  = result.chainIndex != null
+      ? `Block #${result.chainIndex}`
+      : '—';
+
+    const hashCheckEl = document.getElementById('dHashCheck');
+    hashCheckEl.textContent  = result.hashValid ? '✔ Valid' : '✘ Mismatch';
+    hashCheckEl.className    = 'detail-val ' + (result.hashValid ? 'match' : 'mismatch');
+
+    const linkCheckEl = document.getElementById('dLinkCheck');
+    linkCheckEl.textContent  = result.linkValid ? '✔ Linked' : '✘ Broken';
+    linkCheckEl.className    = 'detail-val ' + (result.linkValid ? 'match' : 'mismatch');
+
+    const storedHashEl = document.getElementById('dStoredHash');
+    storedHashEl.textContent = (result.storedHash || '').toUpperCase();
+    storedHashEl.className   = 'hash-value match';
+
+    return;
+  }
+
+  // ── TAMPERED ─────────────────────────────────────────────
+  if (status === 'TAMPERED') {
+    badge.classList.add('tampered');
+    iconEl.outerHTML = '<div class="status-icon" id="statusIcon">❌</div>';
+    mainEl.textContent = '✘ RECORD ALTERED / TAMPERED';
+    subEl.textContent  = 'WARNING: The stored hash does not match the transaction data. This receipt may have been modified.';
+
+    detailRows.style.display = 'flex';
+    hashSec.style.display    = 'block';
+
+    document.getElementById('dReceiptNum').textContent  = result.receiptNumber || receiptNumber;
+    document.getElementById('dTxnType').textContent     = result.txnType || '—';
+    document.getElementById('dAmountPkr').textContent   = result.amountPkr
+      ? `₨ ${parseFloat(result.amountPkr).toLocaleString('en-PK', { minimumFractionDigits: 2 })}`
+      : '—';
+    document.getElementById('dClientName').textContent  = result.clientName || '—';
+    document.getElementById('dTimestamp').textContent   = result.timestamp
+      ? new Date(result.timestamp).toLocaleString('en-PK', { hour12: true })
+      : '—';
+    document.getElementById('dChainIndex').textContent  = result.chainIndex != null
+      ? `Block #${result.chainIndex}`
+      : '—';
+
+    const hashCheckEl = document.getElementById('dHashCheck');
+    hashCheckEl.textContent = '✘ Hash mismatch — data altered';
+    hashCheckEl.className   = 'detail-val mismatch';
+
+    const linkCheckEl = document.getElementById('dLinkCheck');
+    linkCheckEl.textContent = result.linkValid ? '✔ Linked' : '✘ Chain broken';
+    linkCheckEl.className   = 'detail-val ' + (result.linkValid ? 'match' : 'mismatch');
+
+    const storedHashEl = document.getElementById('dStoredHash');
+    storedHashEl.textContent = (result.storedHash || '(not available)').toUpperCase();
+    storedHashEl.className   = 'hash-value mismatch';
+
+    return;
+  }
+
+  // ── NOT FOUND ─────────────────────────────────────────────
+  if (status === 'NOT_FOUND') {
+    badge.classList.add('not-found');
+    iconEl.outerHTML = '<div class="status-icon" id="statusIcon">⚠️</div>';
+    mainEl.textContent = '⚠ TRANSACTION RECORD NOT FOUND';
+    subEl.innerHTML = `Receipt <strong style="font-family:var(--font-mono);font-size:11px;color:#f0f6ff;">${_esc(receiptNumber)}</strong> was not found in this database. `
+      + 'This page verifies receipts on the device where they were issued. '
+      + 'Please open this URL on the original device, or contact the issuing office.';
+    return;
+  }
+
+  // ── NO RECEIPT PARAM ─────────────────────────────────────
+  if (status === 'no-receipt') {
+    badge.classList.add('not-found');
+    iconEl.outerHTML = '<div class="status-icon" id="statusIcon">⚠️</div>';
+    mainEl.textContent = '⚠ NO RECEIPT NUMBER';
+    subEl.textContent  = 'No receipt number was found in the URL. Please scan the QR code on the original receipt.';
+    return;
+  }
+
+  // ── ERROR ────────────────────────────────────────────────
+  badge.classList.add('error');
+  iconEl.outerHTML = '<div class="status-icon" id="statusIcon">⚠️</div>';
+  mainEl.textContent = '⚠ VERIFICATION ERROR';
+  subEl.textContent  = errorMsg
+    ? `The verification engine encountered an error: ${errorMsg}`
+    : 'An unexpected error occurred during verification. Please try reloading this page.';
 }
 
-/* ── TOAST ───────────────────────────────────────────────── */
-const Toast = {
-  show(msg, type = 'info', dur = 4000) {
-    const c = el('toastContainer');
-    const t = document.createElement('div');
-    const icons = { success: '✅', error: '❌', info: 'ℹ️', warning: '⚠️' };
-    t.className = `toast ${type}`;
-    t.innerHTML = `<span>${icons[type] || 'ℹ️'}</span><span>${msg}</span>`;
-    c.appendChild(t);
-    setTimeout(() => {
-      t.style.opacity = '0';
-      t.style.transition = 'opacity 0.3s';
-      setTimeout(() => t.remove(), 300);
-    }, dur);
-  }
-};
+// ── HELPERS ───────────────────────────────────────────────
+function _esc(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
 </script>
 </body>
 </html>

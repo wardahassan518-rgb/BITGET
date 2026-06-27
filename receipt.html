@@ -705,13 +705,19 @@ async function loadReceiptAndProfileDetails() {
         console.info('[QR] Step 3 — Container found:', qrContainer);
         qrContainer.innerHTML = ''; // clear any previous QR
 
-        // qrcodejs flow (v1.0.0):
-        //   1. Creates <canvas>, draws QR pixels on it.
-        //   2. Creates <img style="display:none">, sets img.src = canvas.toDataURL().
-        //   3. In img.onload (async): removes canvas, does img.style.display = "".
-        //      → IMPORTANT: capture canvas BEFORE onload fires (i.e. synchronously here).
-        //      → Do NOT add CSS "img { display:none }" — that re-hides the img when
-        //        onload clears the inline style and CSS cascade wins.
+        // ROOT-CAUSE FIX (BUG #1):
+        // qrcodejs v1.0.0 renders to <canvas> synchronously, then in an
+        // async img.onload it removes the canvas and calls
+        //   img.style.display = ""
+        // That CLEARS the inline display property — it does NOT set
+        // display:block. Control reverts to the CSS cascade.  If any rule
+        // in styles.css (or a print/media query) evaluates to display:none
+        // for images inside this container, the QR vanishes permanently.
+        //
+        // Fix: let qrcodejs draw to canvas (one call), capture the data URL
+        // synchronously before onload fires, clear qrcodejs's own DOM, then
+        // inject our OWN <img> with an EXPLICIT inline display:block that
+        // cannot be overridden by any cascaded CSS rule.
         new QRCode(qrContainer, {
           text: verifyLink,
           width: 84,
@@ -721,36 +727,44 @@ async function loadReceiptAndProfileDetails() {
           correctLevel: QRCode.CorrectLevel.M
         });
 
-        // Step 4: capture canvas synchronously — it still exists before onload removes it
+        // Step 4: canvas exists synchronously right after new QRCode(…)
         const qrCanvas = qrContainer.querySelector('canvas');
         if (qrCanvas) {
           _qrDataUrl = qrCanvas.toDataURL('image/png');
           console.info('[QR] Step 4 — Canvas captured synchronously, dataURL length:', _qrDataUrl.length);
+
+          // Discard qrcodejs DOM (canvas + its hidden img) and replace with
+          // our own <img> that carries an explicit inline display:block.
+          // This is immune to any CSS rule that might otherwise hide it.
+          qrContainer.innerHTML = '';
+          const ownImg = new Image();
+          ownImg.alt = 'QR Code';
+          ownImg.style.cssText = 'width:84px;height:84px;display:block;';
+          ownImg.src = _qrDataUrl;
+          qrContainer.appendChild(ownImg);
+          console.info('[QR] Step 5 — Own <img> injected with forced display:block. QR is visible.');
+
         } else {
-          // Canvas not present — library may have used table fallback.
-          // Try capturing from img after a short delay as a safety net.
-          console.warn('[QR] Step 4 — Canvas not found synchronously; scheduling img fallback capture.');
+          // qrcodejs fell back to <table> mode (no canvas in DOM).
+          // The table itself renders visually as a QR code, so it is
+          // already visible. We still need _qrDataUrl for the PDF —
+          // capture it from the hidden <img> qrcodejs also creates,
+          // but after a short delay so its onload has fired.
+          console.warn('[QR] Step 4 — No canvas found; qrcodejs used TABLE mode.');
           setTimeout(() => {
-            const qrImg = qrContainer.querySelector('img');
-            if (qrImg && qrImg.src && qrImg.src.startsWith('data:')) {
-              _qrDataUrl = qrImg.src;
-              console.info('[QR] Step 4 (fallback) — dataURL captured from img, length:', _qrDataUrl.length);
+            // Force any qrcodejs-managed img visible first
+            const libImg = qrContainer.querySelector('img');
+            if (libImg) {
+              libImg.style.cssText = 'width:84px;height:84px;display:block;';
+              if (libImg.src && libImg.src.startsWith('data:')) {
+                _qrDataUrl = libImg.src;
+                console.info('[QR] Step 5 (TABLE fallback) — img forced visible, dataURL length:', _qrDataUrl.length);
+              }
             } else {
-              console.error('[QR] Step 4 (fallback) — No canvas or img data URL found. QR will be missing from PDF.');
+              console.error('[QR] Step 5 (TABLE fallback) — No img found; QR may be missing from PDF.');
             }
           }, 300);
         }
-
-        // Step 5: confirm QR was appended
-        setTimeout(() => {
-          const rendered = qrContainer.querySelector('img') || qrContainer.querySelector('canvas');
-          if (rendered) {
-            console.info('[QR] Step 5 — QR element confirmed in DOM:', rendered.tagName,
-              'visible:', rendered.style.display !== 'none' && rendered.offsetParent !== null);
-          } else {
-            console.error('[QR] Step 5 — No QR element found in container after render. Container HTML:', qrContainer.innerHTML);
-          }
-        }, 200);
       }
     }
 
