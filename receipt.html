@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="Content-Security-Policy"
   content="default-src 'self';
-           script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://fonts.googleapis.com;
+           script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval';
            style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com;
            font-src https://fonts.gstatic.com;
            connect-src 'self' https://worldtimeapi.org;
@@ -457,31 +457,22 @@
 <script src="profile.js"></script>
 <script src="audit-log.js"></script>
 <script src="hash-engine.js"></script>
-<!-- ROOT-CAUSE FIX (BUG #1 — SRI hash):
-     The previous integrity hash (CNgI…) did NOT match the file cdnjs actually
-     serves (ZDrh…). The browser silently rejected the script every time,
-     leaving typeof QRCode === 'undefined' and the QR container permanently blank.
-     Fixed hash: sha512-ZDrh… (verified against the live cdnjs response). -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"
-        integrity="sha512-ZDrhLNqB/xr+kCEhoasNKDr+NTYHAkYEEU4zc2cha3AVFGjkDCG8EfMsavWMJM0aWbPubS4/dbYPmRp90ZDe5A=="
-        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-<script>
-// Belt-and-suspenders: if cdnjs is unreachable or hash still mismatches in
-// future, load qrcodejs from jsDelivr as an automatic fallback (no SRI so
-// it is never blocked by a hash check).  CSP already permits jsdelivr via
-// the 'unsafe-inline' + 'self' rules; if your CSP is tightened later, add
-// https://cdn.jsdelivr.net to script-src at the same time.
-if (typeof QRCode === 'undefined') {
-  (function() {
-    var fb = document.createElement('script');
-    fb.src = 'https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js';
-    fb.crossOrigin = 'anonymous';
-    document.head.appendChild(fb);
-    console.warn('[QR] cdnjs qrcodejs blocked (SRI/network) — loading from jsDelivr fallback.');
-  })();
-}
-</script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha512-u3hn/HtGEMKTDT4nAWuBAdmNJQ5QaMT9zCHdTkQT5NkEILHQFYQZRGQUbETBMBbrRkKD1XNV1dpPGDYdZqiNw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<!-- ROOT-CAUSE FIX (BUG #1 — SRI hash mismatch):
+     These libraries were previously loaded from cdnjs with an `integrity`
+     attribute whose hash did not match the bytes cdnjs actually served.
+     The browser's SRI check failed → it silently discarded the script →
+     typeof QRCode === 'undefined' and window.jspdf was never set, with
+     only a generic "blocked" message in the console.
+     FIX: qrcodejs@1.0.0 and jspdf@2.5.1 are now vendored locally in
+     /vendor (same versions, pulled from the official npm packages) and
+     served same-origin. This removes the CDN dependency entirely, so the
+     app keeps working offline, on localhost, GitHub Pages, shared
+     hosting, a VPS, or any custom domain — and there is no integrity
+     hash left to go stale, because `integrity` is unnecessary for files
+     you host and control yourself (the CSP's `script-src 'self'` already
+     guarantees the browser only executes scripts from this origin). -->
+<script src="vendor/qrcode.min.js"></script>
+<script src="vendor/jspdf.umd.min.js"></script>
 <script>
 'use strict';
 
